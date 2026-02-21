@@ -2,6 +2,7 @@
 import uuid
 
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -11,6 +12,12 @@ from app.repositories.base_repository import BaseRepository
 class UserRepository(BaseRepository[User]):
     def __init__(self, db: AsyncSession):
         super().__init__(User, db)
+
+    async def get_by_id(self, id: uuid.UUID) -> User | None:
+        result = await self.db.execute(
+            select(User).options(selectinload(User.institution)).where(User.id == id)
+        )
+        return result.scalar_one_or_none()
 
     async def get_by_email(self, email: str, institution_id: uuid.UUID) -> User | None:
         result = await self.db.execute(
@@ -55,7 +62,8 @@ class UserRepository(BaseRepository[User]):
         if institution_id:
             query = query.where(User.institution_id == institution_id)
         if program:
-            query = query.where(User.program.ilike(f"%{program}%"))
+            escaped_program = program.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            query = query.where(User.program.ilike(f"%{escaped_program}%", escape="\\"))
         query = query.offset(offset).limit(limit)
         result = await self.db.execute(query)
         return list(result.scalars().all())

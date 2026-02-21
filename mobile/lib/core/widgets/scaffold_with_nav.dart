@@ -10,8 +10,8 @@ class ScaffoldWithNav extends StatelessWidget {
   int _calculateSelectedIndex(BuildContext context) {
     final location = GoRouterState.of(context).matchedLocation;
     if (location == '/home') return 0;
-    if (location.startsWith('/home/credentials')) return 1;
-    if (location.startsWith('/home/community')) return 2;
+    if (location.startsWith('/home/activity')) return 1;
+    if (location.startsWith('/home/settings')) return 2;
     return 0;
   }
 
@@ -21,10 +21,10 @@ class ScaffoldWithNav extends StatelessWidget {
         context.go('/home');
         break;
       case 1:
-        context.go('/home/credentials');
+        context.go('/home/activity');
         break;
       case 2:
-        context.go('/home/community');
+        context.go('/home/settings');
         break;
     }
   }
@@ -43,14 +43,14 @@ class ScaffoldWithNav extends StatelessWidget {
             label: 'ID Card',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.workspace_premium_outlined),
-            activeIcon: Icon(Icons.workspace_premium),
-            label: 'Credentials',
+            icon: Icon(Icons.history_outlined),
+            activeIcon: Icon(Icons.history),
+            label: 'Activity',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.people_outlined),
-            activeIcon: Icon(Icons.people),
-            label: 'Community',
+            icon: Icon(Icons.settings_outlined),
+            activeIcon: Icon(Icons.settings),
+            label: 'Settings',
           ),
         ],
       ),

@@ -25,10 +25,6 @@ class IdCardPage extends StatelessWidget {
           title: const Text('Student ID Card'),
           actions: [
             IconButton(
-              icon: const Icon(Icons.person),
-              onPressed: () => context.push(RouteNames.profile),
-            ),
-            IconButton(
               icon: const Icon(Icons.qr_code_scanner),
               onPressed: () => context.push(RouteNames.qrScanner),
             ),
@@ -241,26 +237,6 @@ class IdCardPage extends StatelessWidget {
                             ),
                           ],
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Reputation
-                    Card(
-                      child: ListTile(
-                        leading: const Icon(Icons.star, color: AppColors.warning),
-                        title: const Text('Reputation Score'),
-                        trailing: Text(
-                          p.reputationScore?.toStringAsFixed(1) ?? '–',
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
-                              ?.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.primary,
-                              ),
-                        ),
-                        onTap: () => context.push(RouteNames.leaderboard),
                       ),
                     ),
                   ],

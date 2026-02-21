@@ -13,13 +13,10 @@ const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Students", href: "/students", icon: Users },
   { label: "Pending Verification", href: "/students/pending", icon: FileCheck },
-  { label: "Appeals", href: "/appeals", icon: Shield },
   { label: "Credentials", href: "/credentials", icon: Award },
   { label: "Issue Credential", href: "/credentials/issue", icon: BadgeCheck },
   { label: "Key Management", href: "/keys", icon: Key },
   { label: "Audit Logs", href: "/audit-logs", icon: ScrollText },
-  { label: "Community", href: "/community", icon: Users },
-  { label: "Recruiters", href: "/recruiters", icon: Search },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 

@@ -15,28 +15,11 @@ class ProfileRemoteDataSource {
     return ProfileModel.fromJson(response.data!);
   }
 
-  Future<ProfileModel> updateProfile(Map<String, dynamic> data) async {
-    final response = await _client.patch<Map<String, dynamic>>(
-      ApiConstants.updateProfile,
-      data: data,
-    );
-    if (!response.isSuccess) throw Exception(response.message);
-    return ProfileModel.fromJson(response.data!);
-  }
-
   Future<Map<String, dynamic>> getIdCard() async {
     final response = await _client.get<Map<String, dynamic>>(
       ApiConstants.studentIdCard,
     );
     if (!response.isSuccess) throw Exception(response.message);
     return response.data!;
-  }
-
-  Future<void> updatePrivacy(Map<String, bool> settings) async {
-    final response = await _client.patch<Map<String, dynamic>>(
-      ApiConstants.studentPrivacy,
-      data: settings,
-    );
-    if (!response.isSuccess) throw Exception(response.message);
   }
 }

@@ -1,4 +1,5 @@
 """Email service: async email sending via aiosmtplib."""
+import html
 import logging
 from email.message import EmailMessage
 
@@ -52,9 +53,11 @@ class EmailService:
     async def send_status_update_email(
         cls, to: str, full_name: str, new_status: str
     ) -> bool:
-        html = f"""
+        safe_name = html.escape(full_name)
+        safe_status = html.escape(new_status)
+        html_content = f"""
         <h2>Status Update</h2>
-        <p>Hi {full_name},</p>
-        <p>Your verification status has been updated to: <strong>{new_status}</strong></p>
+        <p>Hi {safe_name},</p>
+        <p>Your verification status has been updated to: <strong>{safe_status}</strong></p>
         """
-        return await cls.send(to, "EduLink – Status Update", html)
+        return await cls.send(to, "EduLink – Status Update", html_content)

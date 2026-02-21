@@ -19,31 +19,10 @@ class ProfileRepositoryImpl implements ProfileRepository {
   }
 
   @override
-  Future<Either<String, ProfileEntity>> updateProfile(
-      Map<String, dynamic> data) async {
-    try {
-      final model = await _remote.updateProfile(data);
-      return Right(model.toEntity());
-    } catch (e) {
-      return Left(e.toString().replaceFirst('Exception: ', ''));
-    }
-  }
-
-  @override
   Future<Either<String, Map<String, dynamic>>> getIdCard() async {
     try {
       final data = await _remote.getIdCard();
       return Right(data);
-    } catch (e) {
-      return Left(e.toString().replaceFirst('Exception: ', ''));
-    }
-  }
-
-  @override
-  Future<Either<String, void>> updatePrivacy(Map<String, bool> settings) async {
-    try {
-      await _remote.updatePrivacy(settings);
-      return const Right(null);
     } catch (e) {
       return Left(e.toString().replaceFirst('Exception: ', ''));
     }

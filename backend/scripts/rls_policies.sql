@@ -14,7 +14,7 @@ $$ LANGUAGE sql STABLE;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE institutions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credentials ENABLE ROW LEVEL SECURITY;
-ALTER TABLE credential_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE credential_versions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE signing_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
@@ -29,7 +29,8 @@ USING (
 -- Users can update their own profile
 CREATE POLICY "Users can update own profile"
 ON users FOR UPDATE
-USING (id = auth.uid());
+USING (id = auth.uid())
+WITH CHECK (id = auth.uid() AND institution_id = (SELECT institution_id FROM users WHERE id = auth.uid()));
 
 -- 2. Institutions Table
 -- Anyone can view active institutions

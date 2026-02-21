@@ -9,15 +9,15 @@ import 'package:edulink_mobile/features/credentials/presentation/bloc/credential
 import 'package:edulink_mobile/features/credentials/domain/entities/credential_entity.dart';
 import 'package:intl/intl.dart';
 
-class CredentialsPage extends StatelessWidget {
-  const CredentialsPage({super.key});
+class ActivityPage extends StatelessWidget {
+  const ActivityPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) => getIt<CredentialsBloc>()..add(CredentialsLoadRequested()),
       child: Scaffold(
-        appBar: AppBar(title: const Text('Credential Vault')),
+        appBar: AppBar(title: const Text('Activity')),
         body: BlocBuilder<CredentialsBloc, CredentialsState>(
           builder: (context, state) {
             if (state is CredentialsLoading) {
@@ -92,7 +92,7 @@ class _CredentialCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        onTap: () => context.push('/home/credentials/${credential.id}'),
+        onTap: () => context.push('/home/activity/${credential.id}'),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(16),

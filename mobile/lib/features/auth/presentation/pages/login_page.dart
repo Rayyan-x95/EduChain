@@ -146,25 +146,14 @@ class _LoginPageState extends State<LoginPage> {
                       isLoading: state is AuthLoading,
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Don't have an account? ",
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        GestureDetector(
-                          onTap: () => context.go(RouteNames.register),
-                          child: Text(
-                            'Register',
-                            style:
-                                Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      color: AppColors.primary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                          ),
-                        ),
-                      ],
+                    Center(
+                      child: Text(
+                        "Contact your institution's IT department if you need an account.",
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ],
                 ),

@@ -19,8 +19,6 @@ export default function DashboardPage() {
     { title: "Verified", value: stats?.verified_students ?? 0, icon: FileCheck, color: "text-green-500" },
     { title: "Pending", value: stats?.pending_students ?? 0, icon: Shield, color: "text-yellow-500" },
     { title: "Credentials", value: stats?.total_credentials ?? 0, icon: Award, color: "text-purple-500" },
-    { title: "Appeals Pending", value: stats?.pending_appeals ?? 0, icon: Shield, color: "text-red-500" },
-    { title: "Endorsements", value: stats?.total_endorsements ?? 0, icon: Users, color: "text-indigo-500" },
   ];
 
   return (

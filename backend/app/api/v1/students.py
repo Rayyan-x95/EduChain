@@ -36,7 +36,7 @@ async def get_id_card(user: CurrentUser, db: DBSession):
 @router.get("/{student_id}", response_model=StudentProfile)
 async def get_student(student_id: UUID, user: CurrentUser, db: DBSession):
     svc = StudentService(db)
-    return await svc.get_student_by_id(student_id, user.institution_id, user)
+    return await svc.get_student_by_id(student_id, user.institution_id)
 
 
 @router.patch("/{student_id}/status", response_model=SuccessResponse)

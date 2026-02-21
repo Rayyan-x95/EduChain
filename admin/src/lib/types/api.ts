@@ -35,12 +35,9 @@ export interface StudentProfile {
   email_verified: boolean;
   verified_at: string | null;
   profile_visible: boolean;
-  recruiter_opt_in: boolean;
   avatar_url: string | null;
   bio: string | null;
   phone: string | null;
-  github_username: string | null;
-  reputation_score: number | null;
   institution_id: string;
   created_at: string;
 }
@@ -63,21 +60,6 @@ export interface Credential {
   expires_at: string | null;
   issued_by: string;
   is_public: boolean;
-  created_at: string;
-}
-
-// ── Appeal ────────────────────────────────────
-export interface Appeal {
-  id: string;
-  student_id: string;
-  reason: string;
-  supporting_doc_url: string | null;
-  status: string;
-  submitted_at: string;
-  appeal_deadline: string;
-  reviewed_by: string | null;
-  reviewed_at: string | null;
-  review_notes: string | null;
   created_at: string;
 }
 
@@ -111,8 +93,6 @@ export interface DashboardStats {
   pending_students: number;
   total_credentials: number;
   active_credentials: number;
-  pending_appeals: number;
-  total_endorsements: number;
 }
 
 // ── Auth ──────────────────────────────────────

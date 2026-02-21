@@ -129,21 +129,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
           const SizedBox(height: 20),
 
-          // ── Integrations Section
-          _SectionHeader(title: 'Integrations'),
-          Card(
-            child: ListTile(
-              leading:
-                  const Icon(Icons.code, color: Color(0xFF24292E)),
-              title: const Text('GitHub'),
-              subtitle: const Text('Manage your GitHub connection'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push(RouteNames.githubConnect),
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
           // ── About Section
           _SectionHeader(title: 'About'),
           Card(

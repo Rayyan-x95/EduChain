@@ -89,7 +89,9 @@ class StudentService:
             "SUSPENDED": "STUDENT_SUSPENDED",
             "BLACKLISTED": "STUDENT_BLACKLISTED",
         }
-        action = action_map.get(data.status, "STUDENT_APPROVED")
+        if data.status not in action_map:
+            raise ValueError(f"Unknown status: {data.status}")
+        action = action_map[data.status]
 
         await self.audit_service.log(
             institution_id=institution_id,
@@ -107,8 +109,8 @@ class StudentService:
         }
 
     async def get_student_by_id(
-        self, student_id: uuid.UUID, institution_id: uuid.UUID, requester: User
-    ) -> StudentProfile | None:
+        self, student_id: uuid.UUID, institution_id: uuid.UUID
+    ) -> StudentProfile:
         student = await self.user_repo.get_by_id_and_institution(student_id, institution_id)
         if not student:
             raise NotFoundError("Student", str(student_id))

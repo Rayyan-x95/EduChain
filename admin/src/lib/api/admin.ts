@@ -25,8 +25,3 @@ export async function rotateKey() {
   const { data } = await apiClient.post<SigningKey>("/admin/keys/rotate");
   return data;
 }
-
-export async function overrideReputation(user_id: string, modifier: number, reason: string) {
-  const { data } = await apiClient.post(`/admin/reputation/${user_id}/override`, { modifier, reason });
-  return data;
-}
