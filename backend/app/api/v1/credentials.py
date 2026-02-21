@@ -70,15 +70,3 @@ async def verify_credential(body: CredentialVerifyRequest, db: DBSession):
     """Public endpoint: verify a credential's integrity."""
     svc = CredentialService(db)
     return await svc.verify_credential(body.credential_id, body.payload_hash, body.signature)
-
-
-@router.patch("/{credential_id}/visibility", response_model=SuccessResponse)
-async def update_visibility(
-    credential_id: UUID,
-    body: VisibilityUpdate,
-    user: CurrentUser,
-    db: DBSession,
-):
-    svc = CredentialService(db)
-    await svc.update_visibility(credential_id, user, body.is_public)
-    return SuccessResponse(message="Visibility updated.")

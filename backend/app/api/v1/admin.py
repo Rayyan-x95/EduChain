@@ -1,4 +1,4 @@
-"""Admin routes: dashboard, roles, keys, audit, reputation override."""
+"""Admin routes: dashboard, roles, keys, audit."""
 from uuid import UUID
 from datetime import datetime
 
@@ -9,17 +9,13 @@ from app.schemas.admin import (
     AuditLogResponse,
     DashboardStats,
     KeyGenerateResponse,
-    ReputationOverride,
     RoleAssign,
 )
 from app.schemas.common import SuccessResponse
 from app.services.audit_service import AuditService
 from app.services.key_management_service import KeyManagementService
-from app.services.reputation_service import ReputationService
 from app.repositories.user_repository import UserRepository
 from app.repositories.credential_repository import CredentialRepository
-from app.repositories.appeal_repository import AppealRepository
-from app.repositories.endorsement_repository import EndorsementRepository
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -28,14 +24,10 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 async def dashboard(admin: InstitutionAdmin, db: DBSession):
     user_repo = UserRepository(db)
     cred_repo = CredentialRepository(db)
-    appeal_repo = AppealRepository(db)
-    endorsement_repo = EndorsementRepository(db)
 
     inst = admin.institution_id
     counts = await user_repo.count_by_status(inst)
     total_creds = await cred_repo.count_active(inst)
-    pending_appeals = await appeal_repo.count_pending(inst)
-    total_endorsements = await endorsement_repo.count_by_institution(inst)
 
     return DashboardStats(
         total_students=sum(counts.values()),
@@ -43,8 +35,6 @@ async def dashboard(admin: InstitutionAdmin, db: DBSession):
         pending_students=counts.get("PENDING", 0),
         total_credentials=total_creds,
         active_credentials=total_creds,
-        pending_appeals=pending_appeals,
-        total_endorsements=total_endorsements,
     )
 
 
@@ -101,24 +91,6 @@ async def rotate_key(admin: InstitutionAdmin, db: DBSession):
         public_key_pem=key.public_key_pem,
         created_at=key.created_at,
     )
-
-
-@router.post("/reputation/{user_id}/override", response_model=SuccessResponse)
-async def override_reputation(
-    user_id: UUID,
-    body: ReputationOverride,
-    admin: InstitutionAdmin,
-    db: DBSession,
-):
-    svc = ReputationService(db)
-    await svc.override_modifier(
-        user_id=user_id,
-        institution_id=admin.institution_id,
-        modifier=body.modifier,
-        reason=body.reason,
-        modified_by=admin.id,
-    )
-    return SuccessResponse(message="Reputation modifier updated.")
 
 
 @router.get("/audit-logs", response_model=list[AuditLogResponse])

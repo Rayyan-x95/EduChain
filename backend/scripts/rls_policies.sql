@@ -16,8 +16,6 @@ ALTER TABLE institutions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credentials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credential_versions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE signing_keys ENABLE ROW LEVEL SECURITY;
-ALTER TABLE endorsements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reputation_scores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- 1. Users Table
@@ -26,7 +24,6 @@ CREATE POLICY "Users can view profiles in their institution"
 ON users FOR SELECT
 USING (
   institution_id = (SELECT institution_id FROM users WHERE id = auth.uid())
-  OR profile_visible = true
 );
 
 -- Users can update their own profile
@@ -56,7 +53,6 @@ CREATE POLICY "Students can view own credentials"
 ON credentials FOR SELECT
 USING (
   student_id = auth.uid()
-  OR is_public = true
   OR institution_id = (SELECT institution_id FROM users WHERE id = auth.uid() AND user_type IN ('INSTITUTION_ADMIN', 'ISSUER'))
 );
 
@@ -75,23 +71,7 @@ USING (
   institution_id = (SELECT institution_id FROM users WHERE id = auth.uid() AND user_type = 'INSTITUTION_ADMIN')
 );
 
--- 5. Endorsements Table
--- Anyone can view endorsements
-CREATE POLICY "Anyone can view endorsements"
-ON endorsements FOR SELECT
-USING (true);
-
--- Users can create endorsements
-CREATE POLICY "Users can create endorsements"
-ON endorsements FOR INSERT
-WITH CHECK (giver_id = auth.uid());
-
--- Users can delete their own endorsements
-CREATE POLICY "Users can delete own endorsements"
-ON endorsements FOR DELETE
-USING (giver_id = auth.uid());
-
--- 6. Audit Logs Table
+-- 5. Audit Logs Table
 -- Only Institution Admins and Platform Admins can view audit logs
 CREATE POLICY "Admins can view audit logs"
 ON audit_logs FOR SELECT

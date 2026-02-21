@@ -23,11 +23,6 @@ class KeyGenerateResponse(BaseModel):
     created_at: datetime
 
 
-class ReputationOverride(BaseModel):
-    modifier: float  # -20 to +20
-    reason: str
-
-
 class AuditLogResponse(BaseModel):
     id: UUID
     action: str
@@ -48,5 +43,3 @@ class DashboardStats(BaseModel):
     pending_students: int = 0
     total_credentials: int = 0
     active_credentials: int = 0
-    pending_appeals: int = 0
-    total_endorsements: int = 0

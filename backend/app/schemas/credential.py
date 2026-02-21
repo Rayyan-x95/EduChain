@@ -37,7 +37,6 @@ class CredentialResponse(BaseModel):
     issued_at: datetime
     expires_at: datetime | None = None
     issued_by: UUID
-    is_public: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -69,10 +68,6 @@ class CredentialVerifyResponse(BaseModel):
     credential: dict | None = None
     institution: dict | None = None
     signature_valid: bool = False
-
-
-class VisibilityUpdate(BaseModel):
-    is_public: bool
 
 
 class RevokeRequest(BaseModel):

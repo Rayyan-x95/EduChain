@@ -42,21 +42,3 @@ class ValidationError(EduLinkError):
 class RateLimitError(EduLinkError):
     def __init__(self, message: str = "Too many requests"):
         super().__init__(message=message, code="RATE_LIMIT_EXCEEDED", status_code=429)
-
-
-class AppealWindowExpiredError(EduLinkError):
-    def __init__(self):
-        super().__init__(
-            message="Appeal window has expired. Appeals must be submitted within 24 hours of rejection.",
-            code="APPEAL_WINDOW_EXPIRED",
-            status_code=400,
-        )
-
-
-class AppealAlreadySubmittedError(EduLinkError):
-    def __init__(self):
-        super().__init__(
-            message="You have already submitted an appeal. Only one appeal is allowed.",
-            code="APPEAL_ALREADY_SUBMITTED",
-            status_code=409,
-        )

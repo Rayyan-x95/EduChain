@@ -43,11 +43,6 @@ class RateLimiter:
 
         return request_count > max_requests
 
-    async def check_endorsement_limit(self, user_id: str) -> bool:
-        """Check if user exceeded 3 endorsements per day."""
-        key = f"endorse_limit:{user_id}"
-        return await self.is_rate_limited(key, max_requests=3, window_seconds=86400)
-
     async def close(self):
         if self._redis:
             await self._redis.close()

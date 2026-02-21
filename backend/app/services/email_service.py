@@ -58,15 +58,3 @@ class EmailService:
         <p>Your verification status has been updated to: <strong>{new_status}</strong></p>
         """
         return await cls.send(to, "EduLink – Status Update", html)
-
-    @classmethod
-    async def send_appeal_result_email(
-        cls, to: str, full_name: str, result: str, notes: str | None = None
-    ) -> bool:
-        html = f"""
-        <h2>Appeal Result</h2>
-        <p>Hi {full_name},</p>
-        <p>Your appeal has been <strong>{result.lower()}</strong>.</p>
-        {"<p>Reviewer notes: " + notes + "</p>" if notes else ""}
-        """
-        return await cls.send(to, "EduLink – Appeal Result", html)

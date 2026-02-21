@@ -157,4 +157,3 @@ def require_status(*allowed_statuses: str):
 PlatformAdmin = Annotated[User, Depends(require_role("PLATFORM_ADMIN"))]
 InstitutionAdmin = Annotated[User, Depends(require_role("PLATFORM_ADMIN", "INSTITUTION_ADMIN"))]
 Student = Annotated[User, Depends(require_role("STUDENT"))]
-Recruiter = Annotated[User, Depends(require_role("RECRUITER"))]

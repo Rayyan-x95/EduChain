@@ -40,19 +40,9 @@ class User(BaseModel):
     )
     rejection_reason: Mapped[str | None] = mapped_column(Text)
 
-    # Privacy
-    profile_visible: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    recruiter_opt_in: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-
     # Profile
     avatar_url: Mapped[str | None] = mapped_column(Text)
-    bio: Mapped[str | None] = mapped_column(Text)
     phone: Mapped[str | None] = mapped_column(String(20))
-
-    # GitHub
-    github_username: Mapped[str | None] = mapped_column(String(255))
-    github_oauth_token: Mapped[str | None] = mapped_column(Text)
-    github_connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     # Metadata
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -62,4 +52,3 @@ class User(BaseModel):
     institution = relationship("Institution", back_populates="users", lazy="selectin")
     roles = relationship("Role", back_populates="user", lazy="selectin", foreign_keys="Role.user_id")
     credentials = relationship("Credential", back_populates="student", lazy="selectin", foreign_keys="Credential.student_id")
-    reputation = relationship("ReputationScore", back_populates="user", uselist=False, lazy="selectin")

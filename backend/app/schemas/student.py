@@ -17,13 +17,8 @@ class StudentProfile(BaseModel):
     status: str
     email_verified: bool
     verified_at: datetime | None = None
-    profile_visible: bool
-    recruiter_opt_in: bool
     avatar_url: str | None = None
-    bio: str | None = None
     phone: str | None = None
-    github_username: str | None = None
-    reputation_score: float | None = None
     institution_id: UUID
     created_at: datetime
 
@@ -32,21 +27,8 @@ class StudentProfile(BaseModel):
 
 class StudentUpdate(BaseModel):
     full_name: str | None = None
-    bio: str | None = None
     phone: str | None = Field(None, max_length=20)
     avatar_url: str | None = None
-
-
-class PrivacySettings(BaseModel):
-    profile_visible: bool
-    recruiter_opt_in: bool
-
-    model_config = {"from_attributes": True}
-
-
-class PrivacyUpdate(BaseModel):
-    profile_visible: bool | None = None
-    recruiter_opt_in: bool | None = None
 
 
 class IDCardResponse(BaseModel):
@@ -57,7 +39,6 @@ class IDCardResponse(BaseModel):
     enrollment_number: str | None = None
     status: str
     verification_timestamp: datetime | None = None
-    reputation_score: float | None = None
     avatar_url: str | None = None
 
 

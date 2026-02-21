@@ -11,7 +11,6 @@ from app.core.exceptions import NotFoundError, ValidationError
 from app.core.redis import get_redis
 from app.models.user import User
 from app.repositories.user_repository import UserRepository
-from app.repositories.reputation_repository import ReputationRepository
 from app.services.audit_service import AuditService
 
 
@@ -19,7 +18,6 @@ class VerificationService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.user_repo = UserRepository(db)
-        self.reputation_repo = ReputationRepository(db)
         self.audit_service = AuditService(db)
 
     async def generate_qr_token(self, student: User) -> dict:
@@ -99,7 +97,6 @@ class VerificationService:
         if student.status != "VERIFIED":
             return {"valid": False, "reason": "Student is not verified", "code": "NOT_VERIFIED"}
 
-        rep = await self.reputation_repo.get_by_user(student.id, student.institution_id)
         institution = student.institution
 
         await self.audit_service.log(
@@ -119,7 +116,6 @@ class VerificationService:
                 "program": student.program,
                 "academic_year": student.academic_year,
                 "status": student.status,
-                "reputation_score": float(rep.total_score) if rep else 0,
             },
             "verification_timestamp": datetime.now(timezone.utc).isoformat(),
             "signature_valid": True,

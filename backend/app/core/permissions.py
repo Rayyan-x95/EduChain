@@ -42,10 +42,6 @@ def check_role(user, required_roles: list[str]):
             if role.is_active and role.role in required_roles:
                 return
 
-    # Recruiters have their own type check
-    if user.user_type == "RECRUITER" and "RECRUITER" in required_roles:
-        return
-
     # Students with specific role requirements
     if user.user_type == "STUDENT" and "STUDENT" in required_roles:
         return

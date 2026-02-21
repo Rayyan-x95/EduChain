@@ -45,9 +45,6 @@ class Credential(BaseModel):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
 
-    # Visibility
-    is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-
     # Relationships
     student = relationship("User", back_populates="credentials", foreign_keys=[student_id], lazy="selectin")
     versions = relationship("CredentialVersion", back_populates="credential", lazy="selectin")

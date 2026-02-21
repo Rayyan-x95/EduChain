@@ -1,12 +1,10 @@
-"""Student routes: profile, ID card, privacy, status."""
+"""Student routes: profile, ID card, status."""
 from fastapi import APIRouter, Depends
 from uuid import UUID
 
 from app.api.deps import CurrentUser, DBSession, InstitutionAdmin
 from app.schemas.student import (
     IDCardResponse,
-    PrivacySettings,
-    PrivacyUpdate,
     StatusUpdateRequest,
     StudentProfile,
     StudentUpdate,
@@ -35,22 +33,10 @@ async def get_id_card(user: CurrentUser, db: DBSession):
     return await svc.get_id_card(user)
 
 
-@router.get("/me/privacy", response_model=PrivacySettings)
-async def get_privacy(user: CurrentUser, db: DBSession):
-    svc = StudentService(db)
-    return await svc.get_privacy(user)
-
-
-@router.patch("/me/privacy", response_model=PrivacySettings)
-async def update_privacy(body: PrivacyUpdate, user: CurrentUser, db: DBSession):
-    svc = StudentService(db)
-    return await svc.update_privacy(user, body)
-
-
 @router.get("/{student_id}", response_model=StudentProfile)
 async def get_student(student_id: UUID, user: CurrentUser, db: DBSession):
     svc = StudentService(db)
-    return await svc.get_student_by_id(student_id, user)
+    return await svc.get_student_by_id(student_id, user.institution_id, user)
 
 
 @router.patch("/{student_id}/status", response_model=SuccessResponse)

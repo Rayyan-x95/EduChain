@@ -45,14 +45,12 @@ class UserRepository(BaseRepository[User]):
         self,
         institution_id: uuid.UUID | None = None,
         program: str | None = None,
-        min_reputation: float | None = None,
         offset: int = 0,
         limit: int = 20,
     ) -> list[User]:
         query = select(User).where(
             User.status == "VERIFIED",
             User.user_type == "STUDENT",
-            User.recruiter_opt_in == True,
         )
         if institution_id:
             query = query.where(User.institution_id == institution_id)

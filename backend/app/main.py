@@ -23,7 +23,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="EduLink API",
         version="1.0.0",
-        description="Community-Driven Institutional Student Verification Platform",
+        description="Enterprise Digital Identity Infrastructure SaaS",
         docs_url="/api/v1/docs",
         redoc_url="/api/v1/redoc",
         lifespan=lifespan,
