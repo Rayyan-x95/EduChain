@@ -4,6 +4,7 @@ import 'package:edulink_mobile/core/di/injection.dart';
 import 'package:edulink_mobile/core/network/api_client.dart';
 import 'package:edulink_mobile/config/api_constants.dart';
 import 'package:edulink_mobile/core/widgets/status_badge.dart';
+import 'package:edulink_mobile/core/widgets/app_button.dart';
 import 'package:edulink_mobile/features/credentials/data/models/credential_model.dart';
 import 'package:intl/intl.dart';
 
@@ -65,7 +66,11 @@ class _CredentialDetailPageState extends State<CredentialDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Credential Details')),
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        title: const Text('Credential Details'),
+        backgroundColor: AppColors.background,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -73,125 +78,205 @@ class _CredentialDetailPageState extends State<CredentialDetailPage> {
               : _credential == null
                   ? const Center(child: Text('Not found'))
                   : SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(16),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Title & Status
-                          Text(
-                            _credential!.title,
-                            style: Theme.of(context).textTheme.headlineMedium,
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              StatusBadge(status: _credential!.status),
-                              const SizedBox(width: 8),
-                              Chip(
-                                label: Text(_credential!.category),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                              const Spacer(),
-                              Text('v${_credential!.version}',
-                                  style: Theme.of(context).textTheme.labelSmall),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-
-                          if (_credential!.description != null) ...[
-                            Text(
-                              _credential!.description!,
-                              style: Theme.of(context).textTheme.bodyLarge,
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border, width: 1),
                             ),
-                            const SizedBox(height: 16),
-                          ],
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _credential!.title,
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    StatusBadge(status: _credential!.status),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surfaceVariant,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: AppColors.border, width: 1),
+                                      ),
+                                      child: Text(
+                                        _credential!.category.toUpperCase(),
+                                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                              color: AppColors.textSecondary,
+                                              letterSpacing: 0.5,
+                                            ),
+                                      ),
+                                    ),
+                                    const Spacer(),
+                                    Text('v\',
+                                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                              color: AppColors.textTertiary,
+                                            )),
+                                  ],
+                                ),
+                                if (_credential!.description != null) ...[
+                                  const SizedBox(height: 16),
+                                  const Divider(height: 1),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    _credential!.description!,
+                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                          color: AppColors.textSecondary,
+                                          height: 1.5,
+                                        ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
 
-                          const Divider(),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 24),
 
                           // Details
-                          _DetailRow(
-                            label: 'Issued',
-                            value: DateFormat.yMMMd()
-                                .format(DateTime.parse(_credential!.createdAt)),
-                          ),
-                          if (_credential!.issuedBy != null)
-                            _DetailRow(
-                              label: 'Issued By',
-                              value: _credential!.issuedBy!,
+                          Padding(
+                            padding: const EdgeInsets.only(left: 16, bottom: 8),
+                            child: Text(
+                              'DETAILS',
+                              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: AppColors.textSecondary,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.5,
+                                  ),
                             ),
-                          _DetailRow(
-                            label: 'Visibility',
-                            value: _credential!.isPublic ? 'Public' : 'Private',
                           ),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: AppColors.border, width: 1),
+                            ),
+                            child: Column(
+                              children: [
+                                _DetailRow(
+                                  label: 'Issued',
+                                  value: DateFormat.yMMMd()
+                                      .format(DateTime.parse(_credential!.createdAt)),
+                                ),
+                                const Divider(height: 1),
+                                if (_credential!.issuedBy != null) ...[
+                                  _DetailRow(
+                                    label: 'Issued By',
+                                    value: _credential!.issuedBy!,
+                                  ),
+                                  const Divider(height: 1),
+                                ],
+                                _DetailRow(
+                                  label: 'Visibility',
+                                  value: _credential!.isPublic ? 'Public' : 'Private',
+                                ),
+                              ],
+                            ),
+                          ),
+
                           if (_credential!.payloadHash != null) ...[
-                            const SizedBox(height: 8),
-                            Text('Payload Hash',
-                                style: Theme.of(context).textTheme.titleSmall),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 24),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 16, bottom: 8),
+                              child: Text(
+                                'PAYLOAD HASH',
+                                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                                      color: AppColors.textSecondary,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.5,
+                                    ),
+                              ),
+                            ),
                             Container(
                               width: double.infinity,
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: AppColors.surfaceVariant,
-                                borderRadius: BorderRadius.circular(8),
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.border, width: 1),
                               ),
                               child: Text(
                                 _credential!.payloadHash!,
                                 style: Theme.of(context)
                                     .textTheme
                                     .bodySmall
-                                    ?.copyWith(fontFamily: 'monospace'),
+                                    ?.copyWith(
+                                      fontFamily: 'monospace',
+                                      color: AppColors.textSecondary,
+                                    ),
                               ),
                             ),
                           ],
 
-                          const SizedBox(height: 24),
+                          const SizedBox(height: 32),
 
                           // Verify button
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: _verify,
-                              icon: const Icon(Icons.verified_user),
-                              label: const Text('Verify Cryptographic Signature'),
-                            ),
+                          AppButton(
+                            text: 'Verify Cryptographic Signature',
+                            icon: Icons.verified_user_outlined,
+                            onPressed: _verify,
                           ),
 
                           if (_verification != null) ...[
                             const SizedBox(height: 16),
-                            Card(
-                              color: (_verification!['valid'] == true)
-                                  ? AppColors.success.withOpacity(0.1)
-                                  : AppColors.error.withOpacity(0.1),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      (_verification!['valid'] == true)
-                                          ? Icons.check_circle
-                                          : Icons.cancel,
-                                      color: (_verification!['valid'] == true)
-                                          ? AppColors.success
-                                          : AppColors.error,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        (_verification!['valid'] == true)
-                                            ? 'Signature verified successfully'
-                                            : 'Signature verification failed',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium,
-                                      ),
-                                    ),
-                                  ],
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: (_verification!['valid'] == true)
+                                    ? AppColors.success.withOpacity(0.1)
+                                    : AppColors.error.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: (_verification!['valid'] == true)
+                                      ? AppColors.success.withOpacity(0.3)
+                                      : AppColors.error.withOpacity(0.3),
+                                  width: 1,
                                 ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    (_verification!['valid'] == true)
+                                        ? Icons.check_circle_outline
+                                        : Icons.error_outline,
+                                    color: (_verification!['valid'] == true)
+                                        ? AppColors.success
+                                        : AppColors.error,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      (_verification!['valid'] == true)
+                                          ? 'Signature verified successfully'
+                                          : 'Signature verification failed',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium
+                                          ?.copyWith(
+                                            color: (_verification!['valid'] == true)
+                                                ? AppColors.success
+                                                : AppColors.error,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
+                          const SizedBox(height: 32),
                         ],
                       ),
                     ),
@@ -208,7 +293,7 @@ class _DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(16),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -227,3 +312,4 @@ class _DetailRow extends StatelessWidget {
     );
   }
 }
+

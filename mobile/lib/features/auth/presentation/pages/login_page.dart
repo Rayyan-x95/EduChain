@@ -42,6 +42,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthAuthenticated) {
@@ -51,111 +52,106 @@ class _LoginPageState extends State<LoginPage> {
               SnackBar(
                 content: Text(state.message),
                 backgroundColor: AppColors.error,
+                behavior: SnackBarBehavior.floating,
               ),
             );
           }
         },
         builder: (context, state) {
           return SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 48),
-                    Center(
-                      child: Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(
-                          Icons.school,
-                          size: 40,
-                          color: Colors.white,
-                        ),
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Icon(
+                        Icons.badge_outlined,
+                        size: 64,
+                        color: AppColors.primary,
                       ),
-                    ),
-                    const SizedBox(height: 32),
-                    Center(
-                      child: Text(
-                        'Welcome Back',
-                        style: Theme.of(context).textTheme.displaySmall,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Center(
-                      child: Text(
-                        'Sign in to your EduLink account',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: AppColors.textSecondary,
+                      const SizedBox(height: 32),
+                      Text(
+                        'Sign In',
+                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.5,
                             ),
+                        textAlign: TextAlign.center,
                       ),
-                    ),
-                    const SizedBox(height: 40),
-                    AppTextField(
-                      label: 'Institution',
-                      hint: 'e.g., mit-university',
-                      controller: _institutionController,
-                      prefixIcon: const Icon(Icons.business, size: 20),
-                      validator: (v) =>
-                          v?.isEmpty ?? true ? 'Institution slug required' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    AppTextField(
-                      label: 'Email',
-                      hint: 'you@university.edu',
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      prefixIcon: const Icon(Icons.email_outlined, size: 20),
-                      validator: (v) {
-                        if (v?.isEmpty ?? true) return 'Email required';
-                        if (!v!.contains('@')) return 'Invalid email';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    AppTextField(
-                      label: 'Password',
-                      hint: '••••••••',
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      prefixIcon: const Icon(Icons.lock_outlined, size: 20),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          _obscurePassword
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
-                          size: 20,
-                        ),
-                        onPressed: () => setState(
-                          () => _obscurePassword = !_obscurePassword,
-                        ),
-                      ),
-                      validator: (v) =>
-                          v?.isEmpty ?? true ? 'Password required' : null,
-                    ),
-                    const SizedBox(height: 32),
-                    AppButton(
-                      text: 'Sign In',
-                      onPressed: _login,
-                      isLoading: state is AuthLoading,
-                    ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: Text(
-                        "Contact your institution's IT department if you need an account.",
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      const SizedBox(height: 8),
+                      Text(
+                        'Enter your institution credentials',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                               color: AppColors.textSecondary,
                             ),
                         textAlign: TextAlign.center,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 48),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          border: Border.all(color: AppColors.border),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            AppTextField(
+                              label: 'Institution',
+                              hint: 'e.g., mit-university',
+                              controller: _institutionController,
+                              prefixIcon: const Icon(Icons.business, size: 20),
+                              validator: (v) =>
+                                  v?.isEmpty ?? true ? 'Required' : null,
+                            ),
+                            const Divider(height: 1, color: AppColors.border),
+                            AppTextField(
+                              label: 'Email',
+                              hint: 'you@university.edu',
+                              controller: _emailController,
+                              keyboardType: TextInputType.emailAddress,
+                              prefixIcon: const Icon(Icons.email_outlined, size: 20),
+                              validator: (v) {
+                                if (v?.isEmpty ?? true) return 'Required';
+                                if (!v!.contains('@')) return 'Invalid email';
+                                return null;
+                              },
+                            ),
+                            const Divider(height: 1, color: AppColors.border),
+                            AppTextField(
+                              label: 'Password',
+                              hint: '••••••••',
+                              controller: _passwordController,
+                              obscureText: _obscurePassword,
+                              prefixIcon: const Icon(Icons.lock_outlined, size: 20),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                  size: 20,
+                                ),
+                                onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
+                              ),
+                              validator: (v) =>
+                                  v?.isEmpty ?? true ? 'Required' : null,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      AppButton(
+                        text: 'Sign In',
+                        onPressed: _login,
+                        isLoading: state is AuthLoading,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

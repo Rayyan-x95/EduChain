@@ -14,7 +14,7 @@ $$ LANGUAGE sql STABLE;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE institutions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credentials ENABLE ROW LEVEL SECURITY;
-ALTER TABLE credential_versions DISABLE ROW LEVEL SECURITY;
+ALTER TABLE credential_versions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE signing_keys ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
@@ -60,6 +60,22 @@ USING (
 -- Institution Admins and Issuers can insert/update credentials for their institution
 CREATE POLICY "Institution staff can manage credentials"
 ON credentials FOR ALL
+USING (
+  institution_id = (SELECT institution_id FROM users WHERE id = auth.uid() AND user_type IN ('INSTITUTION_ADMIN', 'ISSUER'))
+);
+
+-- 3.5 Credential Versions Table
+-- Students can view their own credential versions
+CREATE POLICY "Students can view own credential versions"
+ON credential_versions FOR SELECT
+USING (
+  credential_id IN (SELECT id FROM credentials WHERE student_id = auth.uid())
+  OR institution_id = (SELECT institution_id FROM users WHERE id = auth.uid() AND user_type IN ('INSTITUTION_ADMIN', 'ISSUER'))
+);
+
+-- Institution Admins and Issuers can insert/update credential versions for their institution
+CREATE POLICY "Institution staff can manage credential versions"
+ON credential_versions FOR ALL
 USING (
   institution_id = (SELECT institution_id FROM users WHERE id = auth.uid() AND user_type IN ('INSTITUTION_ADMIN', 'ISSUER'))
 );

@@ -5,6 +5,7 @@ import 'package:edulink_mobile/config/theme/app_colors.dart';
 import 'package:edulink_mobile/core/di/injection.dart';
 import 'package:edulink_mobile/core/widgets/empty_state.dart';
 import 'package:edulink_mobile/core/widgets/status_badge.dart';
+import 'package:edulink_mobile/core/widgets/error_display.dart';
 import 'package:edulink_mobile/features/credentials/presentation/bloc/credentials_bloc.dart';
 import 'package:edulink_mobile/features/credentials/domain/entities/credential_entity.dart';
 import 'package:intl/intl.dart';
@@ -17,7 +18,11 @@ class ActivityPage extends StatelessWidget {
     return BlocProvider(
       create: (_) => getIt<CredentialsBloc>()..add(CredentialsLoadRequested()),
       child: Scaffold(
-        appBar: AppBar(title: const Text('Activity')),
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text('Activity'),
+          backgroundColor: AppColors.background,
+        ),
         body: BlocBuilder<CredentialsBloc, CredentialsState>(
           builder: (context, state) {
             if (state is CredentialsLoading) {
@@ -34,23 +39,25 @@ class ActivityPage extends StatelessWidget {
             if (state is CredentialsLoaded) {
               if (state.credentials.isEmpty) {
                 return const EmptyState(
-                  icon: Icons.workspace_premium_outlined,
-                  title: 'No Credentials Yet',
+                  icon: Icons.history,
+                  title: 'No Activity',
                   description:
-                      'Your verified credentials will appear here once issued by your institution.',
+                      'Your credential history will appear here.',
                 );
               }
               return RefreshIndicator(
                 onRefresh: () async {
-                  context
-                      .read<CredentialsBloc>()
-                      .add(CredentialsLoadRequested());
+                  final bloc = context.read<CredentialsBloc>();
+                  bloc.add(CredentialsLoadRequested());
+                  await bloc.stream.firstWhere((state) =>
+                      state is CredentialsLoaded || state is CredentialsError);
                 },
-                child: ListView.builder(
+                child: ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: state.credentials.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
-                    return _CredentialCard(
+                    return _CredentialItem(
                       credential: state.credentials[index],
                     );
                   },
@@ -65,56 +72,37 @@ class ActivityPage extends StatelessWidget {
   }
 }
 
-class _CredentialCard extends StatelessWidget {
+class _CredentialItem extends StatelessWidget {
   final CredentialEntity credential;
 
-  const _CredentialCard({required this.credential});
-
-  IconData get _categoryIcon {
-    switch (credential.category.toLowerCase()) {
-      case 'academic':
-        return Icons.school;
-      case 'extracurricular':
-        return Icons.sports_soccer;
-      case 'skill':
-        return Icons.psychology;
-      case 'achievement':
-        return Icons.emoji_events;
-      case 'certification':
-        return Icons.verified;
-      default:
-        return Icons.workspace_premium;
-    }
-  }
+  const _CredentialItem({required this.credential});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border, width: 1),
+      ),
       child: InkWell(
-        onTap: () => context.push('/home/activity/${credential.id}'),
-        borderRadius: BorderRadius.circular(16),
+        onTap: () => context.push('/home/activity/\'),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(_categoryIcon, color: AppColors.primary),
-              ),
-              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       credential.title,
-                      style: Theme.of(context).textTheme.titleMedium,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -122,34 +110,43 @@ class _CredentialCard extends StatelessWidget {
                     Text(
                       credential.category.toUpperCase(),
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: AppColors.textTertiary,
+                            color: AppColors.textSecondary,
+                            letterSpacing: 0.5,
                           ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      DateFormat.yMMMd().format(credential.createdAt),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today_outlined,
+                          size: 14,
+                          color: AppColors.textTertiary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          DateFormat.yMMMd().format(credential.createdAt),
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.textTertiary,
+                              ),
+                        ),
+                        const SizedBox(width: 12),
+                        Icon(
+                          credential.isPublic
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          size: 14,
+                          color: AppColors.textTertiary,
+                          semanticLabel: credential.isPublic
+                              ? 'Public credential'
+                              : 'Private credential',
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  StatusBadge(status: credential.status),
-                  const SizedBox(height: 6),
-                  Icon(
-                    credential.isPublic
-                        ? Icons.visibility
-                        : Icons.visibility_off,
-                    size: 16,
-                    color: AppColors.textTertiary,
-                  ),
-                ],
-              ),
+              const SizedBox(width: 12),
+              StatusBadge(status: credential.status),
             ],
           ),
         ),
@@ -157,3 +154,4 @@ class _CredentialCard extends StatelessWidget {
     );
   }
 }
+

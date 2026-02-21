@@ -41,15 +41,28 @@ class AppButton extends StatelessWidget {
           Icon(icon, size: 20),
           const SizedBox(width: 8),
         ],
-        Text(text),
+        Text(
+          text,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+        ),
       ],
     );
 
     if (isOutlined) {
       return SizedBox(
         width: width ?? double.infinity,
+        height: 50,
         child: OutlinedButton(
           onPressed: isLoading ? null : onPressed,
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: AppColors.border, width: 1),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
           child: child,
         ),
       );
@@ -57,13 +70,20 @@ class AppButton extends StatelessWidget {
 
     return SizedBox(
       width: width ?? double.infinity,
+      height: 50,
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
-        style: backgroundColor != null
-            ? ElevatedButton.styleFrom(backgroundColor: backgroundColor)
-            : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: backgroundColor ?? AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
         child: child,
       ),
     );
   }
 }
+

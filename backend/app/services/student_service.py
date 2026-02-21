@@ -67,6 +67,17 @@ class StudentService:
     async def update_status(
         self, target_user_id: uuid.UUID, institution_id: uuid.UUID, data: StatusUpdateRequest, actor: User
     ) -> dict:
+        # Map status to audit action
+        action_map = {
+            "VERIFIED": "STUDENT_APPROVED",
+            "REJECTED": "STUDENT_REJECTED",
+            "SUSPENDED": "STUDENT_SUSPENDED",
+            "BLACKLISTED": "STUDENT_BLACKLISTED",
+        }
+        if data.status not in action_map:
+            raise ValueError(f"Unknown status: {data.status}")
+        action = action_map[data.status]
+
         target = await self.user_repo.get_by_id_and_institution(target_user_id, institution_id)
         if not target:
             raise NotFoundError("Student", str(target_user_id))
@@ -81,17 +92,6 @@ class StudentService:
             target.rejection_reason = data.reason
 
         await self.db.flush()
-
-        # Map status to audit action
-        action_map = {
-            "VERIFIED": "STUDENT_APPROVED",
-            "REJECTED": "STUDENT_REJECTED",
-            "SUSPENDED": "STUDENT_SUSPENDED",
-            "BLACKLISTED": "STUDENT_BLACKLISTED",
-        }
-        if data.status not in action_map:
-            raise ValueError(f"Unknown status: {data.status}")
-        action = action_map[data.status]
 
         await self.audit_service.log(
             institution_id=institution_id,
