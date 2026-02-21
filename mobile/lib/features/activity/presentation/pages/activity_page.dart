@@ -48,9 +48,10 @@ class ActivityPage extends StatelessWidget {
               return RefreshIndicator(
                 onRefresh: () async {
                   final bloc = context.read<CredentialsBloc>();
-                  bloc.add(CredentialsLoadRequested());
-                  await bloc.stream.firstWhere((state) =>
+                  final future = bloc.stream.firstWhere((state) =>
                       state is CredentialsLoaded || state is CredentialsError);
+                  bloc.add(CredentialsLoadRequested());
+                  await future;
                 },
                 child: ListView.separated(
                   padding: const EdgeInsets.all(16),
@@ -86,7 +87,7 @@ class _CredentialItem extends StatelessWidget {
         border: Border.all(color: AppColors.border, width: 1),
       ),
       child: InkWell(
-        onTap: () => context.push('/home/activity/\'),
+        onTap: () => context.push('/home/activity/${credential.id}'),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),

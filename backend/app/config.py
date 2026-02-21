@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     # Database (Supabase)
     # Format: postgresql+asyncpg://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
-    DATABASE_URL: str = "postgresql+asyncpg://postgres.sutjmlvobmceqobgkvym:[YOUR-PASSWORD]@aws-0-ap-south-1.pooler.supabase.com:6543/postgres"
+    DATABASE_URL: str = "postgresql+asyncpg://<user>:<password>@<host>:<port>/<db>"
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 10
 
@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # JWT
     JWT_SECRET_KEY: str = "change-me-in-production"
-    JWT_ALGORITHM: str = "ES256"
+    JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
@@ -54,11 +54,24 @@ class Settings(BaseSettings):
     # Crypto
     KEY_ENCRYPTION_KEY: str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
+    @field_validator("KEY_ENCRYPTION_KEY")
+    @classmethod
+    def validate_key_encryption_key(cls, v: str, info) -> str:
+        if info.data.get("ENVIRONMENT") == "production" and v == "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef":
+            raise ValueError("KEY_ENCRYPTION_KEY must be changed in production")
+        if len(v) < 64:
+            raise ValueError("KEY_ENCRYPTION_KEY must be at least 64 characters long")
+        return v
+
     # QR
     QR_TOKEN_EXPIRY_SECONDS: int = 30
 
     # Rate Limiting
     RATE_LIMIT_PER_MINUTE: int = 60
+    TRUSTED_PROXIES: List[str] = ["127.0.0.1", "::1"]
+    
+    # Wallet
+    WALLET_VELOCITY_WINDOW_SECONDS: int = 60
 
     model_config = {"env_file": ".env", "case_sensitive": True}
 

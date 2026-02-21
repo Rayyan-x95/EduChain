@@ -5,5 +5,5 @@ class GenerateQrUseCase {
   final QrRepository _repository;
   GenerateQrUseCase(this._repository);
 
-  Future<Either<String, String>> call() => _repository.generateQrToken();
+  Future<Either<String, Map<String, dynamic>>> call() => _repository.generateQrToken();
 }

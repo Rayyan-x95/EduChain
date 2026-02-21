@@ -92,6 +92,15 @@ class StudentService:
             target.rejection_reason = data.reason
 
         await self.db.flush()
+        
+        # Invalidate Redis cache if status changes
+        try:
+            from app.core.redis import get_redis
+            redis = await get_redis()
+            await redis.delete(f"user_status:{target_user_id}")
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to invalidate Redis cache for user {target_user_id} during status update: {e}")
 
         await self.audit_service.log(
             institution_id=institution_id,

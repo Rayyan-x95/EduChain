@@ -1,11 +1,13 @@
 """Auth routes: register, login, refresh, logout."""
-from fastapi import APIRouter, Depends, Request
+import logging
+from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import DBSession, CurrentUser, _extract_token
 from app.core.redis import add_token_to_blocklist
 from app.config import settings
 from jose import jwt
+import redis.asyncio as redis
 from app.schemas.auth import (
     LoginRequest,
     LoginResponse,
@@ -17,28 +19,21 @@ from app.schemas.common import SuccessResponse
 from app.services.auth_service import AuthService
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("/register", response_model=SuccessResponse, status_code=201)
 async def register(body: RegisterRequest, db: DBSession):
     svc = AuthService(db)
-    user = await svc.register(
-        email=body.email,
-        password=body.password,
-        full_name=body.full_name,
-        institution_slug=body.institution_slug,
-        enrollment_number=body.enrollment_number,
-        program=body.program,
-        academic_year=body.academic_year,
-        department=body.department,
-    )
-    return SuccessResponse(message="Registration successful. Pending verification.", data={"user_id": str(user.id)})
+    result = await svc.register(body)
+    return SuccessResponse(message=result["message"], data={"user_id": result["user_id"]})
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(body: LoginRequest, db: DBSession):
+async def login(request: Request, body: LoginRequest, db: DBSession):
     svc = AuthService(db)
-    result = await svc.login(body.email, body.password, body.institution_slug)
+    dpop_header = request.headers.get("DPoP")
+    result = await svc.login(body, dpop_header)
     return result
 
 
@@ -51,6 +46,8 @@ async def refresh(body: RefreshRequest, db: DBSession):
 
 @router.post("/logout", response_model=SuccessResponse)
 async def logout(user: CurrentUser, token: str = Depends(_extract_token)):
+    jti = None
+    exp = None
     try:
         unverified_payload = jwt.decode(token, options={"verify_signature": False})
         jti = unverified_payload.get("jti")
@@ -60,6 +57,14 @@ async def logout(user: CurrentUser, token: str = Depends(_extract_token)):
             expires_in = int(exp - time.time())
             if expires_in > 0:
                 await add_token_to_blocklist(jti, expires_in)
-    except Exception:
-        pass
+    except jwt.DecodeError as e:
+        import hashlib
+        safe_token = hashlib.sha256(token.encode()).hexdigest()[:8]
+        logger.warning(f"Failed to decode token during logout: {e}. Token hash: {safe_token}")
+    except redis.RedisError as e:
+        logger.error(f"Redis error during logout for jti={jti}, exp={exp}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during logout")
+    except Exception as e:
+        logger.error(f"Critical error during logout for jti={jti}, exp={exp}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error during logout")
     return SuccessResponse(message="Logged out successfully.")

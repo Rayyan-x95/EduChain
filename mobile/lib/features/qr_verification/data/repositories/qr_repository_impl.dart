@@ -8,10 +8,10 @@ class QrRepositoryImpl implements QrRepository {
   QrRepositoryImpl(this._remote);
 
   @override
-  Future<Either<String, String>> generateQrToken() async {
+  Future<Either<String, Map<String, dynamic>>> generateQrToken() async {
     try {
-      final token = await _remote.generateQrToken();
-      return Right(token);
+      final data = await _remote.generateQrToken();
+      return Right(data);
     } catch (e) {
       return Left(e.toString().replaceFirst('Exception: ', ''));
     }

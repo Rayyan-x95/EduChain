@@ -31,6 +31,9 @@ class AuditLog(Base):
     details: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
     ip_address: Mapped[str | None] = mapped_column(String(45))
     user_agent: Mapped[str | None] = mapped_column(Text)
+    
+    previous_hash: Mapped[str | None] = mapped_column(String(64))
+    current_hash: Mapped[str | None] = mapped_column(String(64))
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

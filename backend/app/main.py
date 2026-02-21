@@ -10,13 +10,25 @@ from app.db.session import engine
 from app.middleware.logging_middleware import LoggingMiddleware
 
 
+from app.core.redis import redis_client
+import logging
+
+logger = logging.getLogger(__name__)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: startup and shutdown hooks."""
     # Startup — could initialize Redis pool, warm caches, etc.
     yield
     # Shutdown — dispose DB engine
-    await engine.dispose()
+    try:
+        await engine.dispose()
+    except Exception as e:
+        logger.error(f"Error disposing DB engine: {e}")
+    try:
+        await redis_client.aclose()
+    except Exception as e:
+        logger.error(f"Error closing Redis client: {e}")
 
 
 def create_app() -> FastAPI:

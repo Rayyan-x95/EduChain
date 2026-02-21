@@ -34,6 +34,7 @@ async def _extract_token(request: Request) -> str:
 
 
 async def get_token_data(
+    request: Request,
     token: str = Depends(_extract_token),
 ) -> TokenData:
     from jose import jwt
@@ -59,6 +60,15 @@ async def get_token_data(
                     status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                     detail="Authentication service temporarily unavailable",
                 )
+                
+        # DPoP Validation
+        if unverified_payload.get("dpop_bound"):
+            # TODO: Implement full DPoP proof validation (RFC 9449)
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="DPoP validation is not yet implemented for bound tokens",
+            )
+            
     except HTTPException:
         raise
     except Exception:
@@ -83,7 +93,10 @@ async def get_db_with_rls(
         "role": token_data.role,
         "iss": "edulink"
     }
-    await db.execute(text(f"SET LOCAL request.jwt.claims = '{json.dumps(claims)}'"))
+    await db.execute(
+        text("SELECT set_config('request.jwt.claims', :claims, true)"),
+        {"claims": json.dumps(claims)}
+    )
     return db
 
 
@@ -105,6 +118,27 @@ async def get_current_user(
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
+
+async def get_current_user_optional(
+    request: Request,
+    db: AsyncSession = Depends(get_db_with_rls),
+) -> User | None:
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        return None
+    token = auth.removeprefix("Bearer ").strip()
+    try:
+        token_data = await get_token_data(request, token)
+        repo = UserRepository(db)
+        user = await repo.get_by_id(token_data.user_id)
+        if user and user.status not in ("BLACKLISTED",):
+            return user
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Error in get_current_user_optional: {e}")
+    return None
+
+CurrentUserOptional = Annotated[User | None, Depends(get_current_user_optional)]
 
 async def verify_mobile_attestation(
     x_app_attestation: str = Header(None, description="Mobile App Attestation Token")

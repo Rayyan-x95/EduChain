@@ -8,7 +8,7 @@ class AppColors {
 
   // Secondary
   static const Color secondary = Color(0xFF5856D6); // System Purple
-  static const Color secondaryLight = Color(0xFFA2845E);
+  static const Color secondaryLight = Color(0xFF8E8CFF); // Light Purple
 
   // Status
   static const Color success = Color(0xFF34C759); // System Green
@@ -22,7 +22,7 @@ class AppColors {
   static const Color surfaceVariant = Color(0xFFE5E5EA); // System Gray 5
   static const Color textPrimary = Color(0xFF000000); // Pure Black
   static const Color textSecondary = Color(0xFF8E8E93); // System Gray
-  static const Color textTertiary = Color(0xFFC7C7CC); // System Gray 4
+  static const Color textTertiary = Color(0xFFC7C7CC); // System Gray 3
   static const Color border = Color(0xFFD1D1D6); // System Gray 4
   static const Color divider = Color(0xFFE5E5EA); // System Gray 5
 

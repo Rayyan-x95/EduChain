@@ -6,12 +6,12 @@ class QrRemoteDataSource {
 
   QrRemoteDataSource(this._client);
 
-  Future<String> generateQrToken() async {
+  Future<Map<String, dynamic>> generateQrToken() async {
     final response = await _client.post<Map<String, dynamic>>(
       ApiConstants.qrGenerate,
     );
     if (!response.isSuccess) throw Exception(response.message);
-    return response.data!['token'] as String;
+    return response.data!;
   }
 
   Future<Map<String, dynamic>> validateQrToken(String token) async {

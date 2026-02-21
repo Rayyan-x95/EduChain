@@ -1,7 +1,7 @@
 """Credential routes: issue, update, revoke, verify, list."""
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 
 from app.api.deps import CurrentUser, DBSession, InstitutionAdmin
 from app.schemas.common import SuccessResponse
@@ -18,6 +18,18 @@ from app.services.credential_service import CredentialService
 
 router = APIRouter(prefix="/credentials", tags=["Credentials"])
 
+
+@router.get("/{credential_id}/apple-wallet")
+async def get_apple_wallet_pass(credential_id: UUID, user: CurrentUser, db: DBSession):
+    svc = CredentialService(db)
+    pass_data = await svc.generate_apple_pass(credential_id, user.id)
+    return Response(content=pass_data, media_type="application/vnd.apple.pkpass")
+
+@router.get("/{credential_id}/google-wallet")
+async def get_google_wallet_pass(credential_id: UUID, user: CurrentUser, db: DBSession):
+    svc = CredentialService(db)
+    jwt_token = await svc.generate_google_pass(credential_id, user.id)
+    return {"jwt": jwt_token, "save_url": f"https://pay.google.com/gp/v/save/{jwt_token}"}
 
 @router.post("/", response_model=CredentialResponse, status_code=201)
 async def issue_credential(

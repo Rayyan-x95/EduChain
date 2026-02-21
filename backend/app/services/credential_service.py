@@ -26,6 +26,100 @@ class CredentialService:
         self.key_repo = SigningKeyRepository(db)
         self.audit_service = AuditService(db)
 
+    async def generate_apple_pass(self, credential_id: uuid.UUID, user_id: uuid.UUID) -> bytes:
+        credential = await self.cred_repo.get_by_id(credential_id)
+        if not credential or credential.student_id != user_id:
+            raise NotFoundError("Credential", str(credential_id))
+        
+        if credential.status != "ACTIVE":
+            raise ValidationError("Cannot generate pass for inactive credential.")
+            
+        if credential.expires_at and credential.expires_at < datetime.now(timezone.utc):
+            raise ValidationError("Cannot generate pass for expired credential.")
+            
+        # Mock .pkpass generation (in reality, this would use a library like `wallet-passes` to create a zip with pass.json, icon.png, etc.)
+        # The pass is non-authoritative; it only contains visual info and a QR code for verification.
+        import io
+        import zipfile
+        import json
+        
+        pass_json = {
+            "formatVersion": 1,
+            "passTypeIdentifier": "pass.com.edulink.credential",
+            "serialNumber": str(credential.id),
+            "teamIdentifier": "TEAMID1234",
+            "organizationName": "EduLink",
+            "description": credential.title,
+            "generic": {
+                "primaryFields": [{"key": "title", "value": credential.title}],
+                "secondaryFields": [{"key": "category", "value": credential.category}]
+            },
+            "barcode": {
+                "format": "PKBarcodeFormatQR",
+                "message": f"edulink://verify/wallet/{credential.id}",
+                "messageEncoding": "iso-8859-1"
+            }
+        }
+        
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            zip_file.writestr("pass.json", json.dumps(pass_json))
+            # In a real implementation, we would add signature, manifest.json, and images here.
+            
+        return zip_buffer.getvalue()
+
+    async def generate_google_pass(self, credential_id: uuid.UUID, user_id: uuid.UUID) -> str:
+        credential = await self.cred_repo.get_by_id(credential_id)
+        if not credential or credential.student_id != user_id:
+            raise NotFoundError("Credential", str(credential_id))
+            
+        if credential.status != "ACTIVE":
+            raise ValidationError("Cannot generate pass for inactive credential.")
+            
+        if credential.expires_at and credential.expires_at < datetime.now(timezone.utc):
+            raise ValidationError("Cannot generate pass for expired credential.")
+            
+        # Mock Google Wallet JWT generation
+        # The pass is non-authoritative; it only contains visual info and a QR code for verification.
+        import time
+        from jose import jwt
+        from app.config import settings
+        
+        TTL_SECONDS = 3600
+        iat = int(time.time())
+        
+        claims = {
+            "iss": "edulink-google-wallet-issuer",
+            "aud": "google",
+            "typ": "savetowallet",
+            "iat": iat,
+            "exp": iat + TTL_SECONDS,
+            "payload": {
+                "genericObjects": [{
+                    "id": f"issuer_id.{credential.id}",
+                    "classId": "issuer_id.credential_class",
+                    "genericType": "GENERIC_TYPE_UNSPECIFIED",
+                    "hexBackgroundColor": "#4285f4",
+                    "logo": {
+                        "sourceUri": {"uri": "https://edulink.com/logo.png"}
+                    },
+                    "cardTitle": {
+                        "defaultValue": {"language": "en", "value": credential.title}
+                    },
+                    "header": {
+                        "defaultValue": {"language": "en", "value": credential.category}
+                    },
+                    "barcode": {
+                        "type": "QR_CODE",
+                        "value": f"edulink://verify/wallet/{credential.id}"
+                    }
+                }]
+            }
+        }
+        
+        # In a real implementation, this would be signed with the Google Service Account key.
+        return jwt.encode(claims, settings.JWT_SECRET_KEY, algorithm="HS256")
+
     async def issue(
         self, data: CredentialCreate, institution_id: uuid.UUID, issued_by: User
     ) -> Credential:
@@ -200,6 +294,15 @@ class CredentialService:
         )
         self.db.add(revocation)
         await self.db.flush()
+        
+        # Invalidate Redis cache for the student
+        try:
+            from app.core.redis import get_redis
+            redis = await get_redis()
+            await redis.delete(f"user_status:{credential.student_id}")
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(f"Failed to invalidate Redis cache for user {credential.student_id} during revocation: {e}")
 
         await self.audit_service.log(
             institution_id=institution_id,

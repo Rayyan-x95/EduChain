@@ -62,6 +62,9 @@ CREATE POLICY "Institution staff can manage credentials"
 ON credentials FOR ALL
 USING (
   institution_id = (SELECT institution_id FROM users WHERE id = auth.uid() AND user_type IN ('INSTITUTION_ADMIN', 'ISSUER'))
+)
+WITH CHECK (
+  institution_id = (SELECT institution_id FROM users WHERE id = auth.uid() AND user_type IN ('INSTITUTION_ADMIN', 'ISSUER'))
 );
 
 -- 3.5 Credential Versions Table
@@ -77,6 +80,9 @@ USING (
 CREATE POLICY "Institution staff can manage credential versions"
 ON credential_versions FOR ALL
 USING (
+  institution_id = (SELECT institution_id FROM users WHERE id = auth.uid() AND user_type IN ('INSTITUTION_ADMIN', 'ISSUER'))
+)
+WITH CHECK (
   institution_id = (SELECT institution_id FROM users WHERE id = auth.uid() AND user_type IN ('INSTITUTION_ADMIN', 'ISSUER'))
 );
 
@@ -97,7 +103,10 @@ USING (
   OR EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND user_type = 'PLATFORM_ADMIN')
 );
 
--- System can insert audit logs (bypasses RLS usually, but good to have)
+-- System can insert audit logs (restricted to service role or admins)
 CREATE POLICY "System can insert audit logs"
 ON audit_logs FOR INSERT
-WITH CHECK (true);
+WITH CHECK (
+  auth.role() = 'service_role'
+  OR EXISTS (SELECT 1 FROM users WHERE id = auth.uid() AND user_type IN ('PLATFORM_ADMIN', 'INSTITUTION_ADMIN'))
+);

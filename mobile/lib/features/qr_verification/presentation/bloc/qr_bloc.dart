@@ -30,10 +30,11 @@ class QrLoading extends QrState {}
 
 class QrGenerated extends QrState {
   final String token;
-  QrGenerated(this.token);
+  final String? shortCode;
+  QrGenerated(this.token, {this.shortCode});
 
   @override
-  List<Object?> get props => [token];
+  List<Object?> get props => [token, shortCode];
 }
 
 class QrValidated extends QrState {
@@ -73,7 +74,16 @@ class QrBloc extends Bloc<QrEvent, QrState> {
     final result = await generateQrUseCase();
     result.fold(
       (error) => emit(QrError(error)),
-      (token) => emit(QrGenerated(token)),
+      (data) {
+        final qrToken = data['qr_token'];
+        if (qrToken is! String) {
+          emit(QrError('Invalid QR token received'));
+          return;
+        }
+        final shortCodeRaw = data['short_code'];
+        final shortCode = shortCodeRaw is String ? shortCodeRaw : null;
+        emit(QrGenerated(qrToken, shortCode: shortCode));
+      },
     );
   }
 

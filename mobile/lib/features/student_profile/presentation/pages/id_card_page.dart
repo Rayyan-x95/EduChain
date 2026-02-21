@@ -190,11 +190,31 @@ class IdCardPage extends StatelessWidget {
                             BlocBuilder<QrBloc, QrState>(
                               builder: (context, qrState) {
                                 if (qrState is QrGenerated) {
-                                  return QrImageView(
-                                    data: qrState.token,
-                                    version: QrVersions.auto,
-                                    size: 200,
-                                    backgroundColor: Colors.white,
+                                  return Column(
+                                    children: [
+                                      QrImageView(
+                                        data: qrState.token,
+                                        version: QrVersions.auto,
+                                        size: 200,
+                                        backgroundColor: Colors.white,
+                                      ),
+                                      if (qrState.shortCode != null) ...[
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'Or use short-code:',
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppColors.textSecondary),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          qrState.shortCode!,
+                                          style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                            letterSpacing: 4,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   );
                                 }
                                 if (qrState is QrLoading) {

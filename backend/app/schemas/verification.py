@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 class QRTokenResponse(BaseModel):
     qr_token: str
+    short_code: str | None = None
     expires_at: datetime
     ttl_seconds: int
 

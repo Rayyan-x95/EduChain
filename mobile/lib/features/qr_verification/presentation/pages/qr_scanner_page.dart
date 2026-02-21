@@ -43,6 +43,49 @@ class _QrScannerPageState extends State<QrScannerPage> {
     }
   }
 
+  Future<void> _showManualEntryDialog() async {
+    final controller = TextEditingController();
+    await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Enter Short-Code'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            hintText: 'e.g. 123456',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.text,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final code = controller.text.trim();
+              if (code.isNotEmpty) {
+                Navigator.pop(context);
+                _scanned = true;
+                _controller?.stop();
+                _qrBloc.add(QrValidateRequested(code));
+              } else {
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+                Navigator.pop(context);
+                scaffoldMessenger.showSnackBar(
+                  const SnackBar(content: Text('Please enter a valid code')),
+                );
+              }
+            },
+            child: const Text('Verify'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider.value(
@@ -113,6 +156,12 @@ class _QrScannerPageState extends State<QrScannerPage> {
                                           color: AppColors.textSecondary,
                                         ),
                                   ),
+                                  const SizedBox(height: 16),
+                                  TextButton.icon(
+                                    onPressed: _showManualEntryDialog,
+                                    icon: const Icon(Icons.keyboard),
+                                    label: const Text('Enter Code Manually'),
+                                  ),
                                 ],
                               ),
                   ),
@@ -135,6 +184,8 @@ class _VerificationResult extends StatelessWidget {
   Widget build(BuildContext context) {
     final student = result['student'] as Map<String, dynamic>? ?? {};
     final valid = result['valid'] == true;
+    final fullName = student['full_name'] as String? ?? '';
+    final initial = fullName.isNotEmpty ? fullName[0].toUpperCase() : '?';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -161,7 +212,7 @@ class _VerificationResult extends StatelessWidget {
                       radius: 40,
                       backgroundColor: AppColors.primary,
                       child: Text(
-                        (student['full_name'] as String? ?? '?')[0].toUpperCase(),
+                        initial,
                         style: const TextStyle(
                           fontSize: 32,
                           color: Colors.white,
@@ -183,6 +234,30 @@ class _VerificationResult extends StatelessWidget {
                       ),
                     const SizedBox(height: 8),
                     StatusBadge(status: student['status'] as String? ?? 'UNKNOWN'),
+                    const SizedBox(height: 16),
+                    if (valid)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AppColors.success.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.success.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.verified_user, color: AppColors.success, size: 16),
+                            const SizedBox(width: 8),
+                            Text(
+                              student['status'] == 'ACTIVE' ? 'Verified by EduLink • Active Student' : 'Verified by EduLink',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: AppColors.success,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     const SizedBox(height: 16),
                     if (student['institution_name'] != null)
                       _InfoRow(

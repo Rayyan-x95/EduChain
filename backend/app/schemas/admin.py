@@ -33,6 +33,8 @@ class AuditLogResponse(BaseModel):
     details: dict = {}
     ip_address: str | None = None
     created_at: datetime
+    previous_hash: str | None = None
+    current_hash: str | None = None
 
     model_config = {"from_attributes": True}
 

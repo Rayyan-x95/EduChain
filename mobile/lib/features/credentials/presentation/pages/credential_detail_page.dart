@@ -63,6 +63,14 @@ class _CredentialDetailPageState extends State<CredentialDetailPage> {
     }
   }
 
+  String _formatDate(String dateString) {
+    try {
+      return DateFormat.yMMMd().format(DateTime.parse(dateString));
+    } catch (e) {
+      return dateString;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -121,7 +129,7 @@ class _CredentialDetailPageState extends State<CredentialDetailPage> {
                                       ),
                                     ),
                                     const Spacer(),
-                                    Text('v\',
+                                    Text('v${_credential!.version}',
                                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                                               color: AppColors.textTertiary,
                                             )),
@@ -167,8 +175,7 @@ class _CredentialDetailPageState extends State<CredentialDetailPage> {
                               children: [
                                 _DetailRow(
                                   label: 'Issued',
-                                  value: DateFormat.yMMMd()
-                                      .format(DateTime.parse(_credential!.createdAt)),
+                                  value: _formatDate(_credential!.createdAt),
                                 ),
                                 const Divider(height: 1),
                                 if (_credential!.issuedBy != null) ...[

@@ -91,25 +91,3 @@ async def rotate_key(admin: InstitutionAdmin, db: DBSession):
         public_key_pem=key.public_key_pem,
         created_at=key.created_at,
     )
-
-
-@router.get("/audit-logs", response_model=list[AuditLogResponse])
-async def audit_logs(
-    admin: InstitutionAdmin,
-    db: DBSession,
-    action: str | None = Query(None),
-    from_date: datetime | None = Query(None),
-    to_date: datetime | None = Query(None),
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
-):
-    svc = AuditService(db)
-    logs = await svc.query(
-        institution_id=admin.institution_id,
-        action=action,
-        from_date=from_date,
-        to_date=to_date,
-        offset=offset,
-        limit=limit,
-    )
-    return [AuditLogResponse.model_validate(l) for l in logs]
