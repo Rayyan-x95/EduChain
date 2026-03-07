@@ -1,0 +1,87 @@
+groups:
+  - name: educhain-api-alerts
+    rules:
+      # High error rate (> 5% of requests returning 5xx)
+      - alert: HighErrorRate
+        expr: >
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+          / sum(rate(http_requests_total[5m]))
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High 5xx error rate ({{ $value | humanizePercentage }})"
+          description: "More than 5% of requests are failing with 5xx status codes."
+
+      # High latency (p95 > 2s)
+      - alert: HighLatencyP95
+        expr: >
+          histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le))
+          > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p95 latency ({{ $value | humanizeDuration }})"
+          description: "95th percentile latency exceeds 2 seconds."
+
+      # API service down
+      - alert: APIServiceDown
+        expr: up{job="educhain-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "EduChain API is down"
+          description: "The API service has been unreachable for more than 1 minute."
+
+      # High memory usage (> 80%)
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 > 400
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage ({{ $value | humanize }}MB)"
+          description: "API process memory exceeds 400MB for more than 10 minutes."
+
+      # Redis connection failure
+      - alert: RedisCacheUnavailable
+        expr: redis_up == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis cache is unavailable"
+          description: "Redis connection has been down for more than 2 minutes."
+
+  - name: educhain-slo-alerts
+    rules:
+      # SLO: Availability (99.9% target) — error budget burn rate
+      - alert: ErrorBudgetBurnRate
+        expr: >
+          (
+            sum(rate(http_5xx_errors_total[1h]))
+            / sum(rate(http_requests_total[1h]))
+          ) > 0.001
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Error budget burn rate exceeds SLO threshold"
+          description: "5xx error rate is above 0.1%, threatening 99.9% availability SLO."
+
+      # SLO: Latency (95% of requests < 500ms)
+      - alert: LatencySLOBreach
+        expr: >
+          (
+            1 - (sum(rate(http_requests_within_slo_total[1h]))
+            / sum(rate(http_requests_total[1h])))
+          ) > 0.05
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Latency SLO breach — >5% of requests exceed 500ms"
+          description: "More than 5% of requests are exceeding the 500ms latency SLO target."

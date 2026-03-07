@@ -1,0 +1,172 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Lint, Typecheck, Test & Build
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: educhain
+          POSTGRES_PASSWORD: educhain_password
+          POSTGRES_DB: educhain_db_test
+        options: >-
+          --health-cmd "pg_isready -U educhain -d educhain_db_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    env:
+      DATABASE_URL: postgresql://educhain:educhain_password@localhost:5432/educhain_db_test?schema=public
+      JWT_SECRET: ci-test-jwt-secret-32-characters-long
+      JWT_REFRESH_SECRET: ci-test-refresh-secret-32-chars-long
+      REDIS_URL: redis://localhost:6379
+      PORT: 3000
+      NODE_ENV: test
+      SUPABASE_JWT_SECRET: ci-test-supabase-jwt-secret-32chars
+      GOOGLE_CLIENT_ID: ci-test-google-client-id
+      GOOGLE_CLIENT_SECRET: ci-test-google-client-secret
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: educhain-id/package-lock.json
+
+      - name: Install dependencies
+        working-directory: educhain-id
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: educhain-id/apps/api
+        run: npx prisma generate
+
+      - name: Run database migrations
+        working-directory: educhain-id/apps/api
+        run: npx prisma migrate deploy
+
+      - name: Lint
+        working-directory: educhain-id
+        run: npx turbo run lint
+
+      - name: Type check
+        working-directory: educhain-id
+        run: npx turbo run typecheck
+
+      - name: Run unit tests
+        working-directory: educhain-id
+        run: npx turbo run test
+
+      - name: Security audit (npm)
+        working-directory: educhain-id
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+      - name: Build
+        working-directory: educhain-id
+        run: npx turbo run build
+
+  # ---------------------------------------------------------------------------
+  # Docker build (only on push to main)
+  # ---------------------------------------------------------------------------
+  docker:
+    name: Build & Push Docker Image
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/api
+          tags: |
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: educhain-id
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ---------------------------------------------------------------------------
+  # Database migration (staging/production)
+  # ---------------------------------------------------------------------------
+  migrate:
+    name: Run Database Migration
+    needs: docker
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: educhain-id
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: educhain-id/apps/api
+        run: npx prisma generate
+
+      - name: Run migrations
+        working-directory: educhain-id/apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate deploy

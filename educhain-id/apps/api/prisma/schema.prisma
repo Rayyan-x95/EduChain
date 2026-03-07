@@ -1,0 +1,517 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  student
+  institution_admin
+  recruiter
+  platform_admin
+}
+
+enum ProfileVisibility {
+  public
+  recruiter_only
+  private
+}
+
+enum VerificationStatus {
+  pending
+  approved
+  rejected
+}
+
+enum IdentityVisibility {
+  public
+  connections_only
+  private
+}
+
+model User {
+  id                   String             @id @default(uuid()) @db.Uuid
+  email                String             @unique
+  passwordHash         String             @map("password_hash")
+  role                 UserRole
+  username             String?            @unique
+  publicIdentitySlug   String?            @unique @map("public_identity_slug")
+  identityVisibility   IdentityVisibility @default(public) @map("identity_visibility")
+  deletionScheduledAt  DateTime?          @map("deletion_scheduled_at")
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+
+  refreshTokens RefreshToken[]
+  student       Student?
+  recruiter     Recruiter?
+  notifications Notification[]
+
+  // Phase 8: Reputation Graph
+  outgoingRelationships Relationship[] @relation("RelSource")
+  incomingRelationships Relationship[] @relation("RelTarget")
+
+  @@index([username])
+  @@index([publicIdentitySlug])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  token     String   @unique
+  userId    String   @map("user_id") @db.Uuid
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2: Student Identity
+// ---------------------------------------------------------------------------
+
+enum CredentialStatus {
+  active
+  revoked
+}
+
+model Institution {
+  id                 String   @id @default(uuid()) @db.Uuid
+  name               String
+  domain             String   @unique
+  verificationStatus Boolean  @default(false) @map("verification_status")
+  publicKey          String?  @map("public_key") @db.Text
+  privateKeyRef      String?  @map("private_key_ref")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  students              Student[]
+  verificationRequests  StudentVerification[]
+  credentials           Credential[]
+  keyVersions           KeyVersion[]
+
+  @@index([domain])
+  @@map("institutions")
+}
+
+model Student {
+  id                String            @id @default(uuid()) @db.Uuid
+  userId            String            @unique @map("user_id") @db.Uuid
+  fullName          String            @map("full_name")
+  institutionId     String?           @map("institution_id") @db.Uuid
+  degree            String?
+  graduationYear    Int?              @map("graduation_year")
+  bio               String?
+  profileVisibility ProfileVisibility @default(public) @map("profile_visibility")
+  createdAt         DateTime          @default(now()) @map("created_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution  Institution?  @relation(fields: [institutionId], references: [id])
+  skills       StudentSkill[]
+  projects     Project[]
+  achievements Achievement[]
+  verificationRequests StudentVerification[]
+  credentials  Credential[]
+
+  // Phase 5: Collaboration & Social
+  followers     Follow[]   @relation("FollowTarget")
+  following     Follow[]   @relation("FollowActor")
+  sentCollaborationRequests     CollaborationRequest[] @relation("CollabSender")
+  receivedCollaborationRequests CollaborationRequest[] @relation("CollabReceiver")
+  createdGroups Group[]
+  groupMemberships GroupMember[]
+  activityLogs  ActivityLog[]
+
+  // Phase 6: Recruiter
+  shortlistedBy Shortlist[]
+
+  // Phase 8: Skill Proofs & Endorsements
+  skillProofs   SkillProof[]
+  givenEndorsements    Endorsement[] @relation("EndorserStudent")
+  receivedEndorsements Endorsement[] @relation("EndorseeStudent")
+
+  @@index([institutionId])
+  @@index([graduationYear])
+  @@map("students")
+}
+
+model Skill {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+
+  students     StudentSkill[]
+  skillProofs  SkillProof[]
+  endorsements Endorsement[]
+
+  @@map("skills")
+}
+
+model StudentSkill {
+  studentId String @map("student_id") @db.Uuid
+  skillId   Int    @map("skill_id")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@id([studentId, skillId])
+  @@index([skillId])
+  @@map("student_skills")
+}
+
+model Project {
+  id          String   @id @default(uuid()) @db.Uuid
+  studentId   String   @map("student_id") @db.Uuid
+  title       String
+  description String?
+  repoLink    String?  @map("repo_link")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@map("projects")
+}
+
+model Achievement {
+  id          String   @id @default(uuid()) @db.Uuid
+  studentId   String   @map("student_id") @db.Uuid
+  title       String
+  description String?
+  issuedBy    String?  @map("issued_by")
+  date        DateTime? @db.Date
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@map("achievements")
+}
+
+model StudentVerification {
+  id              String             @id @default(uuid()) @db.Uuid
+  studentId       String             @map("student_id") @db.Uuid
+  institutionId   String             @map("institution_id") @db.Uuid
+  studentEmail    String             @map("student_email")
+  studentIdNumber String             @map("student_id_number")
+  status          VerificationStatus @default(pending)
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  institution Institution @relation(fields: [institutionId], references: [id])
+
+  @@index([studentId])
+  @@index([institutionId])
+  @@map("student_verifications")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: Credential Issuing & Verification
+// ---------------------------------------------------------------------------
+
+model Credential {
+  id              String           @id @default(uuid()) @db.Uuid
+  studentId       String           @map("student_id") @db.Uuid
+  institutionId   String           @map("institution_id") @db.Uuid
+  credentialType  String           @map("credential_type")
+  title           String
+  description     String?          @db.Text
+  issuedDate      DateTime         @map("issued_date") @db.Date
+  credentialHash  String?          @map("credential_hash")
+  signature       String?          @db.Text
+  signedAt        DateTime?        @map("signed_at")
+  keyId           String?          @map("key_id")
+  status          CredentialStatus @default(active)
+  certificateUrl  String?          @map("certificate_url")
+  createdAt       DateTime         @default(now()) @map("created_at")
+
+  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  institution Institution @relation(fields: [institutionId], references: [id])
+
+  @@index([studentId])
+  @@index([institutionId])
+  @@index([credentialHash])
+  @@index([status])
+  @@map("credentials")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String   @map("actor_id") @db.Uuid
+  actorRole  String   @map("actor_role")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id") @db.Uuid
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 5: Collaboration & Social Layer
+// ---------------------------------------------------------------------------
+
+enum CollaborationRequestStatus {
+  pending
+  accepted
+  rejected
+}
+
+enum GroupRole {
+  owner
+  member
+}
+
+model Follow {
+  followerId  String   @map("follower_id") @db.Uuid
+  followingId String   @map("following_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  follower  Student @relation("FollowActor", fields: [followerId], references: [id], onDelete: Cascade)
+  following Student @relation("FollowTarget", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@id([followerId, followingId])
+  @@index([followingId])
+  @@map("follows")
+}
+
+model CollaborationRequest {
+  id         String                     @id @default(uuid()) @db.Uuid
+  senderId   String                     @map("sender_id") @db.Uuid
+  receiverId String                     @map("receiver_id") @db.Uuid
+  message    String?                    @db.Text
+  status     CollaborationRequestStatus @default(pending)
+  createdAt  DateTime                   @default(now()) @map("created_at")
+
+  sender   Student @relation("CollabSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver Student @relation("CollabReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([status])
+  @@map("collaboration_requests")
+}
+
+model Group {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  description String?  @db.Text
+  createdBy   String   @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  creator Student       @relation(fields: [createdBy], references: [id], onDelete: Cascade)
+  members GroupMember[]
+
+  @@index([createdBy])
+  @@map("groups")
+}
+
+model GroupMember {
+  groupId   String    @map("group_id") @db.Uuid
+  studentId String    @map("student_id") @db.Uuid
+  role      GroupRole @default(member)
+  joinedAt  DateTime  @default(now()) @map("joined_at")
+
+  group   Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, studentId])
+  @@index([studentId])
+  @@map("group_members")
+}
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  type      String
+  title     String
+  body      String?  @db.Text
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  actorId   String   @map("actor_id") @db.Uuid
+  action    String
+  targetId  String?  @map("target_id") @db.Uuid
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  actor Student @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 6: Recruiter Portal & Talent Discovery
+// ---------------------------------------------------------------------------
+
+model Recruiter {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @unique @map("user_id") @db.Uuid
+  companyName String   @map("company_name")
+  position    String?
+  bio         String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shortlists Shortlist[]
+
+  @@index([companyName])
+  @@map("recruiters")
+}
+
+model Shortlist {
+  recruiterId String   @map("recruiter_id") @db.Uuid
+  studentId   String   @map("student_id") @db.Uuid
+  note        String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  recruiter Recruiter @relation(fields: [recruiterId], references: [id], onDelete: Cascade)
+  student   Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([recruiterId, studentId])
+  @@index([studentId])
+  @@map("shortlists")
+}
+
+// ---------------------------------------------------------------------------
+// Phase 8: Verifiable Identity — Skill Proofs, Endorsements, Relationships
+// ---------------------------------------------------------------------------
+
+enum ProofType {
+  github_repository
+  hackathon_certificate
+  course_completion
+  peer_endorsement
+  project_contribution
+}
+
+enum ProofVerificationStatus {
+  pending
+  verified
+  rejected
+}
+
+model SkillProof {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  studentId          String                  @map("student_id") @db.Uuid
+  skillId            Int                     @map("skill_id")
+  proofType          ProofType               @map("proof_type")
+  referenceUrl       String?                 @map("reference_url")
+  description        String?                 @db.Text
+  verificationStatus ProofVerificationStatus @default(pending) @map("verification_status")
+  verificationScore  Int                     @default(0) @map("verification_score")
+  createdAt          DateTime                @default(now()) @map("created_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@index([studentId])
+  @@index([skillId])
+  @@index([verificationStatus])
+  @@map("skill_proofs")
+}
+
+model Endorsement {
+  id          String   @id @default(uuid()) @db.Uuid
+  endorserId  String   @map("endorser_id") @db.Uuid
+  endorseeId  String   @map("endorsee_id") @db.Uuid
+  skillId     Int      @map("skill_id")
+  message     String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  endorser Student @relation("EndorserStudent", fields: [endorserId], references: [id], onDelete: Cascade)
+  endorsee Student @relation("EndorseeStudent", fields: [endorseeId], references: [id], onDelete: Cascade)
+  skill    Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([endorserId, endorseeId, skillId])
+  @@index([endorseeId])
+  @@index([skillId])
+  @@map("endorsements")
+}
+
+enum RelationshipType {
+  collaborated_with
+  endorsed_by
+  mentor_of
+  worked_with
+}
+
+model Relationship {
+  id               String           @id @default(uuid()) @db.Uuid
+  sourceUserId     String           @map("source_user_id") @db.Uuid
+  targetUserId     String           @map("target_user_id") @db.Uuid
+  relationshipType RelationshipType @map("relationship_type")
+  createdAt        DateTime         @default(now()) @map("created_at")
+
+  sourceUser User @relation("RelSource", fields: [sourceUserId], references: [id], onDelete: Cascade)
+  targetUser User @relation("RelTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceUserId, targetUserId, relationshipType])
+  @@index([sourceUserId])
+  @@index([targetUserId])
+  @@index([relationshipType])
+  @@map("relationships")
+}
+
+// ---------------------------------------------------------------------------
+// Key versioning — tracks institution key rotations for audit & verification
+// ---------------------------------------------------------------------------
+model KeyVersion {
+  id              String   @id @default(uuid()) @db.Uuid
+  institutionId   String   @map("institution_id") @db.Uuid
+  version         Int
+  publicKeyPem    String   @map("public_key_pem") @db.Text
+  keyFingerprint  String   @map("key_fingerprint")
+  algorithm       String   @default("RS256")
+  activatedAt     DateTime @default(now()) @map("activated_at")
+  deactivatedAt   DateTime? @map("deactivated_at")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+
+  @@unique([institutionId, version])
+  @@index([institutionId])
+  @@index([keyFingerprint])
+  @@map("key_versions")
+}
+
+// ---------------------------------------------------------------------------
+// GDPR — User Consent Tracking
+// ---------------------------------------------------------------------------
+model UserConsent {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  consentType String   @map("consent_type")
+  granted     Boolean  @default(true)
+  version     String   @default("1.0")
+  ipAddress   String?  @map("ip_address")
+  grantedAt   DateTime @default(now()) @map("granted_at")
+  revokedAt   DateTime? @map("revoked_at")
+
+  @@index([userId])
+  @@index([consentType])
+  @@unique([userId, consentType])
+  @@map("user_consents")
+}

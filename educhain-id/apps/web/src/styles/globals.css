@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========================================================================
+   EduChain ID — Design Tokens (CSS Custom Properties)
+   ======================================================================== */
+
+:root {
+  /* ---- Spacing ---- */
+  --space-0: 0px;
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+
+  /* ---- Typography ---- */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-heading: 'Space Grotesk', 'Inter', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* ---- Border Radius ---- */
+  --radius-none: 0px;
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --radius-2xl: 32px;
+  --radius-full: 9999px;
+
+  /* ---- Glassmorphism ---- */
+  --glass-opa: 0.04;
+  --glass-blur: 16px;
+
+  /* ---- Shadows ---- */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
+  --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+  --shadow-xl: 0 20px 25px rgba(0,0,0,0.1), 0 10px 10px rgba(0,0,0,0.04);
+  --shadow-focus: 0 0 0 3px rgba(37, 99, 235, 0.3);
+
+  /* ---- Z-Index ---- */
+  --z-base: 0;
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-overlay: 30;
+  --z-modal: 40;
+  --z-toast: 50;
+  --z-tooltip: 60;
+
+  /* ---- Transitions ---- */
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 500ms;
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+
+  /* ---- Semantic Colors (shared) ---- */
+  --color-primary: #2563EB;
+  --color-primary-hover: #1D4ED8;
+  --color-primary-active: #1E40AF;
+  --color-success: #22C55E;
+  --color-danger: #EF4444;
+  --color-warning: #F59E0B;
+  --color-info: #3B82F6;
+}
+
+/* ---- Dark Theme (Default) ---- */
+[data-theme="dark"] {
+  --bg: #0F172A;
+  --bg-elevated: #1E293B;
+  --bg-surface: #334155;
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-tertiary: #64748B;
+  --text-inverse: #0F172A;
+  --border-default: #334155;
+  --border-subtle: #1E293B;
+  --border-focus: #2563EB;
+  --color-primary-light: rgba(37, 99, 235, 0.15);
+  --color-primary-subtle: rgba(37, 99, 235, 0.08);
+  --color-success-light: rgba(34, 197, 94, 0.15);
+  --color-danger-light: rgba(239, 68, 68, 0.15);
+  --color-warning-light: rgba(245, 158, 11, 0.15);
+  --color-info-light: rgba(59, 130, 246, 0.15);
+}
+
+/* ---- Light Theme ---- */
+[data-theme="light"] {
+  --bg: #FFFFFF;
+  --bg-elevated: #F8FAFC;
+  --bg-surface: #F1F5F9;
+  --bg-overlay: rgba(0, 0, 0, 0.4);
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-tertiary: #94A3B8;
+  --text-inverse: #FFFFFF;
+  --border-default: #E2E8F0;
+  --border-subtle: #F1F5F9;
+  --border-focus: #2563EB;
+  --color-primary-light: #DBEAFE;
+  --color-primary-subtle: rgba(37, 99, 235, 0.05);
+  --color-success-light: #DCFCE7;
+  --color-danger-light: #FEE2E2;
+  --color-warning-light: #FEF3C7;
+  --color-info-light: #EFF6FF;
+}
+
+/* ========================================================================
+   Base Styles
+   ======================================================================== */
+
+@layer base {
+  * {
+    border-color: var(--border-default);
+  }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text-primary);
+  }
+
+  /* Focus visible ring for keyboard navigation */
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+    border-radius: var(--radius-md);
+  }
+
+  /* Heading font family via utility classes */
+  .text-display, .text-h1, .text-h2, .text-h3, .text-h4 {
+    font-family: var(--font-heading);
+  }
+
+  /* Respect reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ========================================================================
+   Utility Classes
+   ======================================================================== */
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--bg-surface) 25%, var(--bg-elevated) 50%, var(--bg-surface) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s linear infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+}
+
+/* Holographic strip animation needs explicit background-size */
+.animate-holo-shimmer {
+  background-size: 300% 100%;
+}

@@ -1,0 +1,48 @@
+# =============================================================================
+# EduLink-Chain — Root .gitignore
+# =============================================================================
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+.turbo/
+*.tsbuildinfo
+
+# Expo / React Native
+.expo/
+apps/mobile/dist/
+
+# Environment (NEVER commit secrets)
+.env
+.env.local
+.env.*.local
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Prisma
+apps/api/prisma/*.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+
+# Test / Coverage
+coverage/
+
+# Misc
+*.tgz
+.cache/

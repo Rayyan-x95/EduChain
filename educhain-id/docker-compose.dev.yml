@@ -1,0 +1,55 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build
+    command: npx tsx watch apps/api/src/server.ts
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://educhain:educhain_password@postgres:5432/educhain_dev?schema=public
+      - JWT_SECRET=dev-jwt-secret-min-32-characters-long
+      - JWT_REFRESH_SECRET=dev-refresh-secret-min-32-characters
+      - REDIS_URL=redis://redis:6379
+      - SUPABASE_JWT_SECRET=dev-supabase-jwt-secret-min-32chars
+      - GOOGLE_CLIENT_ID=dev-google-client-id
+      - GOOGLE_CLIENT_SECRET=dev-google-client-secret
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=educhain
+      - POSTGRES_PASSWORD=educhain_password
+      - POSTGRES_DB=educhain_dev
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U educhain -d educhain_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:

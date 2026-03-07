@@ -1,0 +1,20 @@
+{
+  "name": "@educhain/auth",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo \"no lint configured yet\"",
+    "test": "echo \"no tests yet\""
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.98.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

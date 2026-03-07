@@ -1,0 +1,27 @@
+{
+  "expo": {
+    "name": "EduChain ID",
+    "slug": "educhain-id",
+    "version": "0.1.0",
+    "scheme": "educhain",
+    "platforms": ["ios", "android"],
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0b0f12"
+    },
+    "ios": {
+      "bundleIdentifier": "com.educhain.id",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.educhain.id",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#0b0f12"
+      }
+    },
+    "plugins": ["expo-router"]
+  }
+}
