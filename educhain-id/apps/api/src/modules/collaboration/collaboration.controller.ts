@@ -52,16 +52,16 @@ export class CollaborationController {
   };
 
   acceptCollaborationRequest = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    const { request_id } = request.body as { request_id: string };
+    const { id } = request.params as { id: string };
     const studentId = await this.collaborationService.getStudentIdByUserId(request.user!.userId);
-    const result = await this.collaborationService.acceptCollaborationRequest(request_id, studentId);
+    const result = await this.collaborationService.acceptCollaborationRequest(id, studentId);
     reply.status(200).send({ success: true, data: result });
   };
 
   rejectCollaborationRequest = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
-    const { request_id } = request.body as { request_id: string };
+    const { id } = request.params as { id: string };
     const studentId = await this.collaborationService.getStudentIdByUserId(request.user!.userId);
-    const result = await this.collaborationService.rejectCollaborationRequest(request_id, studentId);
+    const result = await this.collaborationService.rejectCollaborationRequest(id, studentId);
     reply.status(200).send({ success: true, data: result });
   };
 

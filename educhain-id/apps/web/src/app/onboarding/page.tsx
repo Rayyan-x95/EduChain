@@ -1,79 +1,64 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/atoms/Button';
-import { ShieldCheck, FileCheck, Users } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { TopAppBar } from '@/components/ui/TopAppBar';
 
-const SLIDES = [
-  {
-    icon: <ShieldCheck className="h-16 w-16 text-[var(--color-primary)]" />,
-    title: 'Verified Academic Identity',
-    description: 'Build a trusted digital identity backed by your institution. Your credentials, verified on-chain.',
-  },
-  {
-    icon: <FileCheck className="h-16 w-16 text-[var(--color-primary)]" />,
-    title: 'Trusted Credentials',
-    description: 'Receive tamper-proof academic credentials issued directly by your institution. Always verifiable.',
-  },
-  {
-    icon: <Users className="h-16 w-16 text-[var(--color-primary)]" />,
-    title: 'Collaborate Across Institutions',
-    description: 'Discover students, form project groups, and collaborate on research across institutions worldwide.',
-  },
-];
-
-export default function OnboardingPage() {
-  const [current, setCurrent] = useState(0);
+export default function OnboardingWelcomePage() {
   const router = useRouter();
 
-  const next = () => {
-    if (current < SLIDES.length - 1) {
-      setCurrent(current + 1);
-    } else {
-      router.push('/auth/register');
-    }
-  };
-
-  const skip = () => router.push('/auth/login');
-
-  const slide = SLIDES[current];
-
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-6 bg-[var(--bg-default)]">
-      <div className="flex-1 flex flex-col items-center justify-center max-w-md text-center animate-fade-in" key={current}>
-        <div className="mb-8">{slide.icon}</div>
-        <h2 className="text-h2 text-[var(--text-primary)] mb-3">{slide.title}</h2>
-        <p className="text-body text-[var(--text-secondary)]">{slide.description}</p>
+    <div className="relative flex min-h-screen w-full flex-col bg-slate-50 dark:bg-slate-900 overflow-x-hidden font-sans">
+      <TopAppBar 
+        showClose={true} 
+        title="EduChain ID" 
+        onClose={() => router.push('/')}
+      />
+      
+      <div className="flex-1 flex flex-col justify-center px-6 container mx-auto">
+        <div className="md:px-4 md:py-3 max-w-2xl mx-auto w-full">
+          <div className="w-full bg-center bg-no-repeat bg-cover flex flex-col justify-end overflow-hidden bg-blue-600/10 md:rounded-xl min-h-[320px] shadow-2xl shadow-blue-600/20 border border-slate-200 dark:border-slate-800"
+               style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1542451313056-b7c8e626645f?q=80&w=2000&auto=format&fit=crop")' }}>
+            {/* Using an unsplash placeholder for the abstract 3d nodes */}
+          </div>
+        </div>
+        
+        <div className="max-w-md mx-auto text-center mt-10">
+          <h1 className="text-slate-900 dark:text-slate-100 tracking-tight text-3xl font-bold leading-tight pb-4">
+            Welcome to EduChain ID
+          </h1>
+          <p className="text-slate-600 dark:text-slate-400 text-base font-normal leading-relaxed pb-8">
+            Build your verified academic identity with blockchain-backed credentials and secure sharing.
+          </p>
+          
+          <div className="flex w-full flex-row items-center justify-center gap-3 pb-10">
+            <div className="h-2 w-6 rounded-full bg-blue-600"></div>
+            <div className="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+            <div className="h-2 w-2 rounded-full bg-slate-300 dark:bg-slate-700"></div>
+          </div>
+          
+          <div className="flex flex-col gap-4 w-full px-4">
+            <Button 
+              size="lg" 
+              className="group py-4 rounded-xl flex items-center justify-center gap-2 font-semibold"
+              onClick={() => router.push('/onboarding/institution')}
+            >
+              Next
+              <span className="material-symbols-outlined transition-transform group-hover:translate-x-1">arrow_forward</span>
+            </Button>
+            <Button 
+              variant="ghost" 
+              className="py-2 font-medium"
+              onClick={() => router.push('/login')}
+            >
+              Skip for now
+            </Button>
+          </div>
+        </div>
       </div>
-
-      {/* Progress dots */}
-      <div className="flex items-center gap-2 mb-8">
-        {SLIDES.map((_, i) => (
-          <span
-            key={i}
-            className={`h-2 rounded-full transition-all duration-normal ${
-              i === current ? 'w-6 bg-[var(--color-primary)]' : 'w-2 bg-[var(--border-strong)]'
-            }`}
-          />
-        ))}
-      </div>
-
-      <div className="w-full max-w-xs flex flex-col gap-3 pb-12">
-        <Button variant="primary" size="lg" className="w-full" onClick={next}>
-          {current < SLIDES.length - 1 ? 'Next' : 'Get Started'}
-        </Button>
-        {current < SLIDES.length - 1 && (
-          <Button variant="ghost" size="md" className="w-full" onClick={skip}>
-            Skip
-          </Button>
-        )}
-        {current === SLIDES.length - 1 && (
-          <Button variant="ghost" size="md" className="w-full" onClick={() => router.push('/auth/login')}>
-            Already have an account? Sign in
-          </Button>
-        )}
-      </div>
+      
+      <div className="h-10 bg-transparent"></div>
     </div>
   );
 }

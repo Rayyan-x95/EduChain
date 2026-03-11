@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { CredentialsService } from './credentials.service';
 import { buildVerifiableCredential, buildJWTVC, buildOfflineVerificationPayload } from '../../lib/vc';
 import type { CredentialExportFormat } from '@educhain/types';
+import { prisma } from '../../lib/prisma';
 
 export class CredentialsController {
   constructor(private readonly credentialsService: CredentialsService) {}
@@ -67,6 +68,23 @@ export class CredentialsController {
       parseInt(limit ?? '20') || 20,
     );
 
+    reply.status(200).send({ success: true, data: result });
+  };
+
+  getMyCredentials = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const student = await prisma.student.findUnique({
+      where: { userId: request.user!.userId }
+    });
+    if (!student) {
+      reply.status(404).send({ success: false, error: 'Student profile not found' });
+      return;
+    }
+    const { page, limit } = request.query as { page?: string; limit?: string };
+    const result = await this.credentialsService.getStudentCredentials(
+      student.id,
+      parseInt(page ?? '1') || 1,
+      parseInt(limit ?? '20') || 20,
+    );
     reply.status(200).send({ success: true, data: result });
   };
 

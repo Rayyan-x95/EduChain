@@ -28,8 +28,9 @@ export async function authenticateToken(
   reply: FastifyReply,
 ): Promise<void> {
   const authHeader = request.headers.authorization;
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-
+  // First check HTTP-only cookies for improved security
+  const cookieToken = request.cookies?.['access_token'];
+  const token = cookieToken || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null);
   if (!token) {
     reply.status(401).send({ success: false, error: 'Access token required' });
     return;

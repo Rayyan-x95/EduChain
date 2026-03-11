@@ -35,25 +35,25 @@ export async function collaborationRoutes(fastify: FastifyInstance): Promise<voi
 
   // Collaboration Requests
   fastify.post(
-    '/collaboration/request',
+    '/collaborations/request',
     { preHandler: [authenticateToken, authorizeRole(['student']), validateBody(sendCollaborationRequestSchema)] },
     collaborationController.sendCollaborationRequest,
   );
 
   fastify.post(
-    '/collaboration/accept',
-    { preHandler: [authenticateToken, authorizeRole(['student']), validateBody(handleCollaborationRequestSchema)] },
+    '/collaborations/:id/accept',
+    { preHandler: [authenticateToken, authorizeRole(['student'])] },
     collaborationController.acceptCollaborationRequest,
   );
 
   fastify.post(
-    '/collaboration/reject',
-    { preHandler: [authenticateToken, authorizeRole(['student']), validateBody(handleCollaborationRequestSchema)] },
+    '/collaborations/:id/reject',
+    { preHandler: [authenticateToken, authorizeRole(['student'])] },
     collaborationController.rejectCollaborationRequest,
   );
 
   fastify.get(
-    '/collaboration/list',
+    '/collaborations',
     { preHandler: [authenticateToken, authorizeRole(['student'])] },
     collaborationController.listCollaborationRequests,
   );

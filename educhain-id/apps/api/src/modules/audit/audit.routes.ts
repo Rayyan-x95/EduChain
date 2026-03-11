@@ -9,10 +9,10 @@ const auditLogService = new AuditLogService(prisma);
 const auditController = new AuditController(auditLogService);
 
 export async function auditRoutes(fastify: FastifyInstance): Promise<void> {
-  // Own audit trail
+  // [INTERNAL / FUTURE FEATURE] Own audit trail
   fastify.get('/me', { preHandler: [authenticateToken] }, auditController.getMyAuditLogs);
 
-  // Admin – view audit logs for any entity
+  // [ADMIN] Admin — view audit logs for any entity
   fastify.get(
     '/:entityType/:entityId',
     { preHandler: [authenticateToken, authorizeRole(['platform_admin', 'institution_admin'])] },

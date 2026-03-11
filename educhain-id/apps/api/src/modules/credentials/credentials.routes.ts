@@ -84,6 +84,12 @@ export async function credentialsRoutes(fastify: FastifyInstance): Promise<void>
 
   // Credential queries — ownership enforced
   fastify.get(
+    '/me',
+    { preHandler: [authenticateToken] },
+    credentialsController.getMyCredentials,
+  );
+
+  fastify.get(
     '/student/:studentId',
     { preHandler: [authenticateToken, ownershipGuard('studentId')] },
     credentialsController.getStudentCredentials,
