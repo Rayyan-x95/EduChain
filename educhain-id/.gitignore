@@ -42,3 +42,19 @@ coverage/
 # Misc
 *.tgz
 .cache/
+
+# Temp / scratch / one-off scripts (never commit)
+apps/api/fix*.js
+apps/api/fix*.ts
+apps/api/patch*.cjs
+apps/api/patch*.mjs
+apps/api/credentials.service.temp.ts
+apps/mobile/make_png.js
+
+# Build / CI output logs
+lint_output.txt
+typecheck_output.txt
+
+# Agent and AI editors
+.gemini/
+.cursor/
