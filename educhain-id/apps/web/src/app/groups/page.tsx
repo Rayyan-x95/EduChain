@@ -1,104 +1,263 @@
 'use client';
 
-import React from 'react';
+import { FormEvent, useState } from 'react';
 import Link from 'next/link';
+import { BottomTabBar } from '@/components/organisms/BottomTabBar';
+import { ErrorState } from '@/components/organisms/ErrorState';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import {
+  useCollaborationRequests,
+  useCreateGroup,
+  useHandleCollaboration,
+  useMyGroups,
+} from '@/hooks/api';
 
-const groups = [
-  { id: '1', name: 'Web3 Builders', members: 128, type: 'Public', description: 'Exploring smart contract protocols and Zero Knowledge logic.', category: 'Engineering' },
-  { id: '2', name: 'UI/UX Innovators', members: 84, type: 'Private', description: 'Design reviews and critique for spatial computing interfaces.', category: 'Design' },
-  { id: '3', name: 'Data Science Hub', members: 215, type: 'Public', description: 'Python, R, and Machine Learning research papers.', category: 'Data' },
-];
+type GroupRecord = {
+  id: string;
+  name: string;
+  description?: string | null;
+  myRole?: 'owner' | 'member';
+  _count?: { members?: number };
+  members?: Array<{ student?: { fullName?: string | null } | null }>;
+};
 
 export default function GroupsDirectoryPage() {
+  const groupsQuery = useMyGroups();
+  const incomingQuery = useCollaborationRequests('incoming');
+  const outgoingQuery = useCollaborationRequests('outgoing');
+  const handleMutation = useHandleCollaboration();
+  const createGroup = useCreateGroup();
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+
+  async function handleCreateGroup(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await createGroup.mutateAsync({
+      name,
+      description: description.trim() || undefined,
+    });
+    setName('');
+    setDescription('');
+  }
+
+  const groups = (Array.isArray(groupsQuery.data) ? groupsQuery.data : []) as GroupRecord[];
+  const incoming = (Array.isArray(incomingQuery.data) ? incomingQuery.data : []) as Array<{
+    id: string;
+    message?: string | null;
+    sender?: { fullName?: string | null } | null;
+  }>;
+  const outgoing = (Array.isArray(outgoingQuery.data) ? outgoingQuery.data : []) as Array<{
+    id: string;
+    message?: string | null;
+    receiver?: { fullName?: string | null } | null;
+  }>;
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans pb-24 md:pb-0 md:pl-20">
-      
-      {/* Mobile Top Header */}
-      <header className="md:hidden sticky top-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md z-30 border-b border-slate-200 dark:border-slate-800 p-4 flex items-center justify-between">
-         <h1 className="font-bold text-xl text-slate-900 dark:text-white">Groups</h1>
-         <div className="w-10 h-10 flex items-center justify-center bg-slate-100 dark:bg-slate-900 rounded-full">
-            <span className="material-symbols-outlined text-slate-700 dark:text-slate-300">search</span>
-         </div>
-      </header>
-
-      {/* Desktop Sidebar (Mini) */}
-      <aside className="hidden md:flex flex-col w-20 fixed left-0 top-0 bottom-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 py-4 items-center justify-between z-30">
-        <div className="flex flex-col gap-6 items-center">
-            <Link href="/" className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg">
-                <span className="material-symbols-outlined text-lg">link</span>
-            </Link>
-            <div className="h-px w-8 bg-slate-200 dark:bg-slate-800" />
-            <Link href="/dashboard" className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors">
-                <span className="material-symbols-outlined">home</span>
-            </Link>
-            <Link href="/groups" className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                <span className="material-symbols-outlined">groups</span>
-            </Link>
-        </div>
-      </aside>
-
-      <main className="max-w-6xl mx-auto p-4 md:p-8">
-        
-        {/* Header & Actions */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+    <div className="min-h-screen bg-[var(--bg-default)] pb-24">
+      <main id="main-content" className="mx-auto flex max-w-6xl flex-col gap-6 p-4 md:p-8">
+        <section className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Collaboration Groups</h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-1">Join communities, share research, and collaborate.</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+                Project Groups
+              </p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--text-primary)]">
+                Build alongside verified peers
+              </h1>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--text-secondary)]">
+                Use groups to organize collaborative work, keep ownership clear, and surface trustworthy
+                team activity on top of your academic identity.
+              </p>
             </div>
-            <div className="flex gap-3">
-                <div className="relative hidden md:block">
-                    <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">search</span>
-                    <input type="text" placeholder="Search groups..." className="pl-9 pr-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+
+            <Link href="/groups#requests">
+              <Button variant="outline">Open Collaboration Requests</Button>
+            </Link>
+          </div>
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-[380px_1fr]">
+          <form
+            className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm"
+            onSubmit={handleCreateGroup}
+          >
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+              Create Group
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-[var(--text-primary)]">Start a new working circle</h2>
+
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
+                  Group Name
+                </label>
+                <Input
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Zero-Knowledge Builders"
+                  required
+                />
+              </div>
+              <div>
+                <label className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
+                  Description
+                </label>
+                <textarea
+                  rows={4}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="What are you building, researching, or sharing together?"
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                />
+              </div>
+              <Button type="submit" disabled={createGroup.isPending}>
+                {createGroup.isPending ? 'Creating...' : 'Create Group'}
+              </Button>
+            </div>
+          </form>
+
+          <div className="space-y-4">
+            {groupsQuery.isLoading ? (
+              Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={index}
+                  className="h-40 animate-pulse rounded-[28px] bg-slate-200/70 dark:bg-slate-900/80"
+                />
+              ))
+            ) : groupsQuery.isError ? (
+              <ErrorState
+                title="Groups unavailable"
+                message="We couldn't load your groups right now."
+                onRetry={() => void groupsQuery.refetch()}
+              />
+            ) : groups.length > 0 ? (
+              groups.map((group) => (
+                <article
+                  key={group.id}
+                  className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm"
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-[var(--bg-default)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+                          {group.myRole ?? 'member'}
+                        </span>
+                        <span className="text-xs text-[var(--text-tertiary)]">
+                          {group._count?.members ?? group.members?.length ?? 0} members
+                        </span>
+                      </div>
+                      <h2 className="mt-3 text-2xl font-bold text-[var(--text-primary)]">{group.name}</h2>
+                      <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--text-secondary)]">
+                        {group.description ?? 'No group description yet.'}
+                      </p>
+                    </div>
+
+                    <Link href={`/groups/${group.id}`}>
+                      <Button variant="outline">Open Group</Button>
+                    </Link>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="rounded-[28px] border border-dashed border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 text-sm text-[var(--text-secondary)]">
+                You are not part of any groups yet. Create one to organize a project or study cohort.
+              </div>
+            )}
+          </div>
+        </section>
+
+        <section id="requests" className="grid gap-6 xl:grid-cols-2">
+          <div className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+              Incoming Requests
+            </p>
+            <div className="mt-6 space-y-4">
+              {incomingQuery.isLoading ? (
+                Array.from({ length: 2 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="h-32 animate-pulse rounded-[28px] bg-slate-200/70 dark:bg-slate-900/80"
+                  />
+                ))
+              ) : incoming.length > 0 ? (
+                incoming.map((request) => (
+                  <article
+                    key={request.id}
+                    className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-default)] p-5"
+                  >
+                    <h2 className="text-xl font-bold text-[var(--text-primary)]">
+                      {request.sender?.fullName ?? 'Unknown sender'}
+                    </h2>
+                    {request.message && (
+                      <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
+                        {request.message}
+                      </p>
+                    )}
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <Button
+                        disabled={handleMutation.isPending}
+                        onClick={() => handleMutation.mutate({ id: request.id, decision: 'accepted' })}
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        variant="outline"
+                        disabled={handleMutation.isPending}
+                        onClick={() => handleMutation.mutate({ id: request.id, decision: 'rejected' })}
+                      >
+                        Decline
+                      </Button>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <div className="rounded-[28px] border border-dashed border-[var(--border-default)] bg-[var(--bg-default)] p-5 text-sm text-[var(--text-secondary)]">
+                  No incoming requests right now.
                 </div>
-                <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold text-sm rounded-xl hover:bg-slate-800 dark:hover:bg-slate-100 transition-colors">
-                    <span className="material-symbols-outlined text-[18px]">add</span> Create Group
-                </button>
+              )}
             </div>
-        </div>
+          </div>
 
-        {/* Categories/Filters */}
-        <div className="flex gap-2 overflow-x-auto no-scrollbar mb-6 pb-2">
-            <button className="px-4 py-1.5 rounded-full text-sm font-bold bg-slate-900 text-white dark:bg-white dark:text-slate-900 whitespace-nowrap">All Groups</button>
-            <button className="px-4 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 whitespace-nowrap">My Groups</button>
-            <button className="px-4 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 whitespace-nowrap">Engineering</button>
-            <button className="px-4 py-1.5 rounded-full text-sm font-medium bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 whitespace-nowrap">Design</button>
-        </div>
-
-        {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {groups.map(group => (
-                <Link key={group.id} href={`/groups/${group.id}`} className="group bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 hover:border-blue-500/50 dark:hover:border-blue-500/50 hover:shadow-md transition-all relative overflow-hidden block">
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-lg shadow-sm">
-                            {group.name.substring(0, 2).toUpperCase()}
-                        </div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md">
-                            {group.type}
-                        </span>
-                    </div>
-                    
-                    <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                        {group.name}
-                    </h3>
-                    <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 mb-6">
-                        {group.description}
-                    </p>
-                    
-                    <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800">
-                        <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400">
-                            <span className="material-symbols-outlined text-[16px]">group</span>
-                            {group.members} Members
-                        </div>
-                        <span className="text-blue-600 dark:text-blue-400 font-bold text-sm flex items-center group-hover:translate-x-1 transition-transform">
-                            Join <span className="material-symbols-outlined text-[16px] ml-1">arrow_forward</span>
-                        </span>
-                    </div>
-                </Link>
-            ))}
-        </div>
-
+          <div className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+              Outgoing Requests
+            </p>
+            <div className="mt-6 space-y-4">
+              {outgoingQuery.isLoading ? (
+                Array.from({ length: 2 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="h-32 animate-pulse rounded-[28px] bg-slate-200/70 dark:bg-slate-900/80"
+                  />
+                ))
+              ) : outgoing.length > 0 ? (
+                outgoing.map((request) => (
+                  <article
+                    key={request.id}
+                    className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-default)] p-5"
+                  >
+                    <h2 className="text-xl font-bold text-[var(--text-primary)]">
+                      {request.receiver?.fullName ?? 'Unknown recipient'}
+                    </h2>
+                    {request.message && (
+                      <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
+                        {request.message}
+                      </p>
+                    )}
+                  </article>
+                ))
+              ) : (
+                <div className="rounded-[28px] border border-dashed border-[var(--border-default)] bg-[var(--bg-default)] p-5 text-sm text-[var(--text-secondary)]">
+                  No outgoing requests right now.
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
       </main>
 
+      <BottomTabBar />
     </div>
   );
 }

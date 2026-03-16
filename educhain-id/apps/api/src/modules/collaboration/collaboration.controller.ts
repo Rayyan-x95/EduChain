@@ -71,6 +71,35 @@ export class CollaborationController {
     reply.status(200).send({ success: true, data: result });
   };
 
+  listIncomingCollaborationRequests = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const studentId = await this.collaborationService.getStudentIdByUserId(request.user!.userId);
+    const result = await this.collaborationService.getIncomingCollaborationRequests(studentId);
+    reply.status(200).send({ success: true, data: result });
+  };
+
+  listOutgoingCollaborationRequests = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const studentId = await this.collaborationService.getStudentIdByUserId(request.user!.userId);
+    const result = await this.collaborationService.getOutgoingCollaborationRequests(studentId);
+    reply.status(200).send({ success: true, data: result });
+  };
+
+  listActiveCollaborators = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const studentId = await this.collaborationService.getStudentIdByUserId(request.user!.userId);
+    const result = await this.collaborationService.getActiveCollaborators(studentId);
+    reply.status(200).send({ success: true, data: result });
+  };
+
+  getActivityFeed = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const studentId = await this.collaborationService.getStudentIdByUserId(request.user!.userId);
+    const { page, limit } = request.query as { page?: string; limit?: string };
+    const result = await this.collaborationService.getActivityFeed(
+      studentId,
+      parseInt(page ?? '1', 10) || 1,
+      parseInt(limit ?? '20', 10) || 20,
+    );
+    reply.status(200).send({ success: true, data: result });
+  };
+
   createGroup = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     const { name, description } = request.body as { name: string; description?: string };
     const studentId = await this.collaborationService.getStudentIdByUserId(request.user!.userId);
@@ -82,6 +111,13 @@ export class CollaborationController {
     const studentId = await this.collaborationService.getStudentIdByUserId(request.user!.userId);
     const groups = await this.collaborationService.listGroups(studentId);
     reply.status(200).send({ success: true, data: groups });
+  };
+
+  getGroupById = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { group_id } = request.params as { group_id: string };
+    const studentId = await this.collaborationService.getStudentIdByUserId(request.user!.userId);
+    const group = await this.collaborationService.getGroupById(group_id, studentId);
+    reply.status(200).send({ success: true, data: group });
   };
 
   addGroupMember = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {

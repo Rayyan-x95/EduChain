@@ -5,7 +5,6 @@ import {
   buildOfflineVerificationPayload,
   verifyJWTVC,
 } from './vc';
-import type { VerifiableCredential } from '@educhain/types';
 
 // Generate a test RSA key pair
 const { publicKey: testPublicKey, privateKey: testPrivateKey } = crypto.generateKeyPairSync('rsa', {

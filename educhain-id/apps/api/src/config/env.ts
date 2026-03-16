@@ -12,7 +12,7 @@ const envSchema = z.object({
   REDIS_URL: z.string().min(1).optional().default('redis://localhost:6379'),
 
   // Server
-  PORT: z.coerce.number().positive().default(3000),
+  PORT: z.coerce.number().positive().default(8001),
   NODE_ENV: z.enum(['development', 'staging', 'production', 'test']).default('development'),
 
   // Sentry
@@ -43,6 +43,10 @@ const envSchema = z.object({
   // Retention
   AUDIT_LOG_RETENTION_DAYS: z.coerce.number().positive().default(365),
   NOTIFICATION_ARCHIVE_DAYS: z.coerce.number().positive().default(90),
+
+  // Ops: internal endpoints
+  ADMIN_API_KEY: z.string().min(16).optional(),
+  METRICS_API_KEY: z.string().min(16).optional(),
 });
 
 function loadEnv() {

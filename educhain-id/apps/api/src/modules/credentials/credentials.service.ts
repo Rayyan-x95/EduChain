@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { PrismaClient, CredentialStatus as PrismaCredentialStatus } from '@prisma/client';
 import { AppError } from '../../middleware/errorHandler';
 import {
@@ -24,11 +25,29 @@ export class CredentialsService {
     this.keyStore = new InstitutionKeyStore(prisma);
   }
 
+  private async assertInstitutionAccess(requesterUserId: string, requesterRole: string, institutionId: string) {
+    if (requesterRole === 'platform_admin') return;
+    if (requesterRole !== 'institution_admin') throw new AppError(403, 'Forbidden');
+
+    const [user, institution] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: requesterUserId }, select: { email: true } }),
+      this.prisma.institution.findUnique({ where: { id: institutionId }, select: { domain: true } }),
+    ]);
+
+    if (!user || !institution) throw new AppError(404, 'Institution not found');
+
+    const emailDomain = user.email.split('@')[1] ?? '';
+    if (emailDomain.toLowerCase() !== institution.domain.toLowerCase()) {
+      throw new AppError(403, 'Forbidden');
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Institution key management
   // ---------------------------------------------------------------------------
 
   async generateKeys(institutionId: string, actorId: string, actorRole: string) {
+    await this.assertInstitutionAccess(actorId, actorRole, institutionId);
     const institution = await this.prisma.institution.findUnique({
       where: { id: institutionId },
     });
@@ -61,14 +80,7 @@ export class CredentialsService {
     await this.keyStore.storePrivateKey(institutionId, privateKey);
 
     // Track key version
-    await this.prisma.keyVersion.create({
-      data: {
-        institutionId,
-        version: 1,
-        publicKeyPem: publicKey,
-        keyFingerprint: generateKeyFingerprint(publicKey),
-      },
-    });
+    await this.prisma.institutionKey.create({ data: { institutionId, publicKey, status: "active" } });
 
     await this.auditLog.log({
       actorId,
@@ -94,10 +106,19 @@ export class CredentialsService {
     // Look up the institution this admin belongs to
     const institution = await this.findAdminInstitution(adminUserId);
 
-    // Verify student belongs to this institution
-    const student = await this.prisma.student.findUnique({
-      where: { id: data.studentId },
-    });
+    // Resolve the student by UUID or verified email within the institution.
+    const student = data.studentId
+      ? await this.prisma.student.findUnique({
+          where: { id: data.studentId },
+        })
+      : await this.prisma.student.findFirst({
+          where: {
+            institutionId: institution.id,
+            user: {
+              email: data.studentEmail,
+            },
+          },
+        });
 
     if (!student) {
       throw new AppError(404, 'Student not found');
@@ -109,7 +130,7 @@ export class CredentialsService {
 
     // Build credential payload for hashing
     const credentialPayload = {
-      studentId: data.studentId,
+      studentId: student.id,
       institutionId: institution.id,
       credentialType: data.credentialType,
       title: data.title,
@@ -127,12 +148,12 @@ export class CredentialsService {
     if (privateKey && institution.publicKey) {
       signature = signCredential(credentialHash, privateKey);
       signedAt = new Date();
-      keyId = generateKeyFingerprint(institution.publicKey);
+      const activeKey = await this.prisma.institutionKey.findFirst({ where: { institutionId: institution.id, status: "active" }, orderBy: { createdAt: "desc" } }); if (activeKey) { keyId = activeKey.id; }
     }
 
     const credential = await this.prisma.credential.create({
       data: {
-        studentId: data.studentId,
+        studentId: student.id,
         institutionId: institution.id,
         credentialType: data.credentialType,
         title: data.title,
@@ -142,8 +163,9 @@ export class CredentialsService {
         signature,
         signedAt,
         keyId,
-        status: 'active',
-      },
+        nonce: crypto.randomBytes(16).toString('hex'),
+          status: 'active',
+        },
       include: {
         student: { select: { id: true, fullName: true } },
         institution: { select: { id: true, name: true, domain: true } },
@@ -157,7 +179,8 @@ export class CredentialsService {
       entityType: 'credential',
       entityId: credential.id,
       metadata: {
-        studentId: data.studentId,
+        studentId: student.id,
+        studentEmail: data.studentEmail ?? null,
         credentialType: data.credentialType,
         signed: !!signature,
       },
@@ -200,9 +223,12 @@ export class CredentialsService {
 
     const signature = signCredential(credential.credentialHash, privateKey);
     const signedAt = new Date();
-    const keyId = credential.institution?.publicKey
-      ? generateKeyFingerprint(credential.institution.publicKey)
-      : null;
+    const activeKey = await this.prisma.institutionKey.findFirst({
+      where: { institutionId: credential.institutionId, status: 'active' },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    const keyId = activeKey?.id ?? null;
 
     const updated = await this.prisma.credential.update({
       where: { id: credentialId },
@@ -265,16 +291,14 @@ export class CredentialsService {
       return { verified: false, reason: 'Credential is not yet signed' };
     }
 
-    // Look up the public key that was used to sign this credential via keyId
-    // (keyId stores the key fingerprint at time of signing).
+    // Look up the public key that was used to sign this credential via keyId.
     // This ensures credentials signed with old keys remain verifiable after rotation.
     let verificationKey: string | null = null;
     if (credential.keyId) {
-      const keyVersion = await this.prisma.keyVersion.findFirst({
-        where: { keyFingerprint: credential.keyId },
-        select: { publicKeyPem: true },
-      });
-      verificationKey = keyVersion?.publicKeyPem ?? null;
+      const keyVersion = await this.prisma.institutionKey.findFirst({
+          where: { id: credential.keyId }
+        });
+        verificationKey = keyVersion?.publicKey ?? null;
     }
 
     // Fall back to the institution's current public key if no keyVersion match
@@ -445,6 +469,26 @@ export class CredentialsService {
     return { credentials, total, page, limit: take };
   }
 
+  async getCurrentInstitutionCredentials(
+    requesterUserId: string,
+    page = 1,
+    limit = 20,
+  ) {
+    const institution = await this.findAdminInstitution(requesterUserId);
+    return this.getInstitutionCredentials(institution.id, page, limit);
+  }
+
+  async getInstitutionCredentialsScoped(
+    requesterUserId: string,
+    requesterRole: string,
+    institutionId: string,
+    page = 1,
+    limit = 20,
+  ) {
+    await this.assertInstitutionAccess(requesterUserId, requesterRole, institutionId);
+    return this.getInstitutionCredentials(institutionId, page, limit);
+  }
+
   // ---------------------------------------------------------------------------
   // Certificate URL attachment
   // ---------------------------------------------------------------------------
@@ -521,6 +565,7 @@ export class CredentialsService {
    * with the old signature; new credentials use the new key.
    */
   async rotateKeys(institutionId: string, actorId: string, actorRole: string) {
+    await this.assertInstitutionAccess(actorId, actorRole, institutionId);
     const institution = await this.prisma.institution.findUnique({ where: { id: institutionId } });
     if (!institution) throw new AppError(404, 'Institution not found');
     if (!institution.publicKey) throw new AppError(400, 'Institution has no existing key pair to rotate');
@@ -529,37 +574,33 @@ export class CredentialsService {
     await this.keyStore.rotateKey(institutionId, privateKey, publicKey);
 
     // Deactivate current key version and create new one
-    const latestVersion = await this.prisma.keyVersion.findFirst({
-      where: { institutionId, deactivatedAt: null },
-      orderBy: { version: 'desc' },
-    });
-    const nextVersion = (latestVersion?.version ?? 0) + 1;
+    const latestVersion = await this.prisma.institutionKey.findFirst({
+        where: { institutionId, status: 'active' },
+        orderBy: { createdAt: 'desc' },
+      });
 
-    await this.prisma.$transaction([
-      ...(latestVersion
-        ? [this.prisma.keyVersion.update({
-            where: { id: latestVersion.id },
-            data: { deactivatedAt: new Date() },
-          })]
-        : []),
-      this.prisma.keyVersion.create({
-        data: {
-          institutionId,
-          version: nextVersion,
-          publicKeyPem: publicKey,
-          keyFingerprint: generateKeyFingerprint(publicKey),
-        },
-      }),
-    ]);
+      await this.prisma.$transaction([
+        ...(latestVersion
+          ? [this.prisma.institutionKey.update({
+              where: { id: latestVersion.id },
+              data: { status: 'revoked', revokedAt: new Date() },
+            })]
+          : []),
+        this.prisma.institutionKey.create({
+          data: {
+            institutionId,
+            publicKey: publicKey,
+            status: 'active'
+          },
+        }),
+      ]);
 
-    await this.auditLog.log({
-      actorId,
-      actorRole,
-      action: 'institution_keys_rotated',
-      entityType: 'institution',
-      entityId: institutionId,
-      metadata: { publicKeyFingerprint: publicKey.slice(0, 64), keyVersion: nextVersion },
-    });
+      await this.auditLog.log({
+        actorId, actorRole, action: 'institution_keys_rotated',
+        entityType: 'institution',
+        entityId: institutionId,
+        metadata: { publicKeyFingerprint: publicKey.slice(0, 64) },
+      });
 
     return { publicKey };
   }
@@ -615,7 +656,7 @@ export class CredentialsService {
   }
 
   // ---------------------------------------------------------------------------
-  // Key registry – public keys of all participating institutions
+  // Key registry â€“ public keys of all participating institutions
   // ---------------------------------------------------------------------------
 
   async getKeyRegistry(): Promise<InstitutionKeyRegistryEntry[]> {
@@ -643,3 +684,4 @@ export class CredentialsService {
       }));
   }
 }
+

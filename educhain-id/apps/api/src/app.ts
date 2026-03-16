@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import crypto from 'crypto';
 
 import { authRoutes } from './modules/auth/auth.routes';
 import { studentsRoutes } from './modules/students/students.routes';
@@ -29,6 +30,7 @@ import { captureException } from './lib/sentry';
 import { buildPlatformDIDDocument } from './lib/did';
 import { prisma } from './lib/prisma';
 import { runAllMaintenance } from './lib/maintenance';
+import { env } from './config/env';
 
 const startedAt = Date.now();
 
@@ -150,6 +152,14 @@ export async function buildApp() {
   // Internal metrics endpoint
   // ---------------------------------------------------------------------------
   app.get('/metrics', async (request, reply) => {
+    // In production, require an API key to prevent leaking internal metrics.
+    if (env.NODE_ENV === 'production' && env.METRICS_API_KEY) {
+      const key = request.headers['x-metrics-key'];
+      if (key !== env.METRICS_API_KEY) {
+        return reply.status(403).send({ success: false, error: { message: 'Forbidden', code: 'FORBIDDEN' } });
+      }
+    }
+
     const accept = request.headers.accept ?? '';
     if (accept.includes('text/plain') || accept.includes('text/plain; version=0.0.4')) {
       reply.header('content-type', 'text/plain; version=0.0.4; charset=utf-8');
@@ -163,8 +173,8 @@ export async function buildApp() {
   // ---------------------------------------------------------------------------
   app.post('/api/v1/admin/maintenance', async (request, reply) => {
     const authHeader = request.headers['x-admin-key'];
-    if (authHeader !== process.env.JWT_SECRET) {
-      return reply.status(403).send({ success: false, error: 'Forbidden' });
+    if (!env.ADMIN_API_KEY || authHeader !== env.ADMIN_API_KEY) {
+      return reply.status(403).send({ success: false, error: { message: 'Forbidden', code: 'FORBIDDEN' } });
     }
     const results = await runAllMaintenance(prisma);
     reply.status(200).send({ success: true, data: results });

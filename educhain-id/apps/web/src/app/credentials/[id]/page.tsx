@@ -1,106 +1,277 @@
 'use client';
 
-import React from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { Copy, Download, ExternalLink, ShieldCheck } from 'lucide-react';
+import { TopAppBar } from '@/components/ui/TopAppBar';
+import { Button } from '@/components/ui/Button';
+import { ErrorState } from '@/components/organisms/ErrorState';
+import { apiFetch } from '@/lib/api';
+import { useCreateShareLink, useCredentialById, useVerifyCredential } from '@/hooks/api';
+
+type CredentialRecord = {
+  id: string;
+  title: string;
+  description?: string | null;
+  credentialType: string;
+  issuedDate: string | Date;
+  credentialHash?: string | null;
+  signature?: string | null;
+  signedAt?: string | Date | null;
+  keyId?: string | null;
+  nonce?: string | null;
+  status: 'active' | 'revoked';
+  certificateUrl?: string | null;
+  studentId: string;
+  student?: { id?: string; fullName?: string | null } | null;
+  institution?: { name?: string | null; domain?: string | null } | null;
+};
+
+type VerificationResult = {
+  verified: boolean;
+  reason?: string;
+};
+
+function formatDate(value?: string | Date | null) {
+  if (!value) return 'Not available';
+  return new Intl.DateTimeFormat('en', { month: 'long', day: 'numeric', year: 'numeric' }).format(
+    new Date(value),
+  );
+}
 
 export default function CredentialDetailPage({ params }: { params: { id: string } }) {
+  const router = useRouter();
+  const credentialQuery = useCredentialById(params.id);
+  const verifyQuery = useVerifyCredential(params.id);
+  const createShareLink = useCreateShareLink();
+  const [message, setMessage] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
+
+  const credential = credentialQuery.data as CredentialRecord | undefined;
+  const verification = verifyQuery.data as VerificationResult | undefined;
+
+  async function handleShare() {
+    if (!credential) return;
+    const response = (await createShareLink.mutateAsync({
+      credentialId: credential.id,
+    })) as { data?: { shareUrl?: string } };
+
+    const shareUrl = response.data?.shareUrl;
+    if (shareUrl) {
+      await navigator.clipboard.writeText(shareUrl);
+      setMessage('Share link copied to clipboard.');
+    }
+  }
+
+  async function handleDownload() {
+    if (!credential) return;
+    setDownloading(true);
+    setMessage(null);
+    try {
+      const response = await apiFetch<{
+        data?: { format?: string; vc?: unknown; data?: string; filename?: string };
+      }>(`/credentials/${credential.id}/export-vc`);
+
+      const payload = response.data;
+      const content =
+        payload?.format === 'jwt-vc'
+          ? payload.data ?? ''
+          : JSON.stringify(payload?.vc ?? response, null, 2);
+      const blob = new Blob([content], {
+        type: payload?.format === 'jwt-vc' ? 'application/jwt' : 'application/json',
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download =
+        payload?.filename ??
+        `credential-${credential.id}.${payload?.format === 'jwt-vc' ? 'jwt' : 'json'}`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setMessage('Credential export downloaded.');
+    } catch {
+      setMessage('Unable to download the credential export right now.');
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  if (credentialQuery.isLoading || verifyQuery.isLoading) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-default)] p-4 md:p-8">
+        <div className="mx-auto h-96 max-w-5xl animate-pulse rounded-[28px] bg-slate-200/70 dark:bg-slate-900/80" />
+      </div>
+    );
+  }
+
+  if (credentialQuery.isError || verifyQuery.isError) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-default)] p-4 md:p-8">
+        <div className="mx-auto max-w-3xl">
+          <ErrorState
+            title="Credential unavailable"
+            message="We couldn't load this credential or its verification status."
+            onRetry={() => {
+              void credentialQuery.refetch();
+              void verifyQuery.refetch();
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (!credential) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-default)] p-4 md:p-8">
+        <div className="mx-auto max-w-3xl">
+          <ErrorState title="Credential not found" message="The requested credential does not exist." />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 font-sans pb-24 md:pb-0 md:pl-20">
-      
-      {/* Mobile Header */}
-      <header className="md:hidden sticky top-0 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md z-30 border-b border-slate-200 dark:border-slate-800 p-4 flex items-center gap-4">
-         <Link href="/wallet" className="w-10 h-10 flex items-center justify-center rounded-full bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300">
-           <span className="material-symbols-outlined">arrow_back</span>
-         </Link>
-         <h1 className="font-bold text-lg text-slate-900 dark:text-white">Credential</h1>
-      </header>
+    <div className="min-h-screen bg-[var(--bg-default)]">
+      <TopAppBar
+        title="Credential Detail"
+        showBack
+        onBack={() => router.back()}
+        className="sticky top-0 z-40 border-b border-[var(--border-default)] bg-[var(--bg-elevated)]"
+      />
 
-      {/* Desktop Sidebar (Mini) */}
-      <aside className="hidden md:flex flex-col w-20 fixed left-0 top-0 bottom-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 py-4 items-center justify-between z-30">
-        <div className="flex flex-col gap-6">
-            <Link href="/" className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg">
-                <span className="material-symbols-outlined text-lg">link</span>
-            </Link>
-            <div className="h-px w-8 bg-slate-200 dark:bg-slate-800 mx-auto" />
-            <Link href="/dashboard" className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white transition-colors">
-                <span className="material-symbols-outlined">home</span>
-            </Link>
-            <Link href="/wallet" className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                <span className="material-symbols-outlined">account_balance_wallet</span>
-            </Link>
-        </div>
-      </aside>
-
-      <main className="max-w-3xl mx-auto p-4 md:p-8">
-        
-        {/* Title row */}
-        <div className="flex justify-between items-start mb-6 md:mb-8 pt-2">
+      <main className="mx-auto flex max-w-5xl flex-col gap-6 p-4 md:p-8">
+        <section className="rounded-[32px] border border-[var(--border-default)] bg-slate-950 p-8 text-white shadow-xl">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">B.S. Computer Science</h1>
-                <p className="text-slate-500 flex items-center gap-1 mt-1 font-medium">
-                    <span className="material-symbols-outlined text-[18px]">verified</span> Validated on EduChain
-                </p>
-            </div>
-            <div className="flex gap-2">
-                <button className="w-10 h-10 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800">
-                    <span className="material-symbols-outlined">ios_share</span>
-                </button>
-            </div>
-        </div>
-
-        {/* Certificate Display */}
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 dark:from-slate-800 dark:to-slate-900 rounded-3xl p-8 mb-8 text-white relative overflow-hidden shadow-xl border border-slate-700/50">
-            {/* Decal */}
-            <div className="absolute -right-16 -top-16 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
-            
-            <div className="flex justify-between items-start relative z-10 mb-16">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/80">
+                  {credential.credentialType}
+                </span>
+                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/80">
+                  {verification?.verified ? 'Verified' : credential.status}
+                </span>
+              </div>
+              <h1 className="mt-4 text-4xl font-bold tracking-tight">{credential.title}</h1>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-white/80">
+                {credential.description ?? 'No additional description was provided for this credential.'}
+              </p>
+              <div className="mt-6 grid gap-4 md:grid-cols-3">
                 <div>
-                    <div className="text-xs uppercase tracking-widest text-slate-400 font-bold mb-1">Issuer</div>
-                    <div className="text-xl font-bold">Stanford University</div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/60">Recipient</p>
+                  <p className="mt-2 text-lg font-semibold">
+                    {credential.student?.fullName ?? 'Unknown student'}
+                  </p>
                 </div>
-                <div className="w-16 h-16 bg-white/10 rounded-full flex items-center justify-center border border-white/20">
-                    <span className="material-symbols-outlined text-3xl">school</span>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/60">Issuer</p>
+                  <p className="mt-2 text-lg font-semibold">
+                    {credential.institution?.name ?? 'Unknown institution'}
+                  </p>
                 </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/60">Issued</p>
+                  <p className="mt-2 text-lg font-semibold">{formatDate(credential.issuedDate)}</p>
+                </div>
+              </div>
             </div>
 
-            <div className="relative z-10">
-                <div className="text-sm text-slate-400 font-bold uppercase tracking-wider mb-1">Recipient</div>
-                <div className="text-2xl font-normal mb-8">Rayyan Ahmed</div>
-                
-                <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-6">
-                    <div>
-                        <div className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Issued Date</div>
-                        <div className="font-mono text-sm">May 15, 2024</div>
-                    </div>
-                    <div>
-                        <div className="text-xs text-slate-400 uppercase font-bold tracking-wider mb-1">Credential ID</div>
-                        <div className="font-mono text-sm">#10294-BSCS</div>
-                    </div>
+            <div className="rounded-[28px] border border-white/10 bg-white/5 p-5">
+              <div className="flex items-center gap-2 text-emerald-300">
+                <ShieldCheck className="h-5 w-5" />
+                <p className="text-sm font-semibold uppercase tracking-[0.18em]">Verification</p>
+              </div>
+              <p className="mt-3 text-3xl font-bold">
+                {verification?.verified ? 'Valid' : 'Needs review'}
+              </p>
+              <p className="mt-3 max-w-xs text-sm leading-6 text-white/70">
+                {verification?.verified
+                  ? 'Signature, issuer key, and credential status all validated successfully.'
+                  : verification?.reason ?? 'Verification details were unavailable.'}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm">
+            <div className="flex flex-wrap gap-3">
+              <Button onClick={() => void handleShare()} disabled={createShareLink.isPending}>
+                <Copy className="mr-2 h-4 w-4" />
+                {createShareLink.isPending ? 'Creating Link...' : 'Copy Share Link'}
+              </Button>
+              <Button variant="outline" onClick={() => void handleDownload()} disabled={downloading}>
+                <Download className="mr-2 h-4 w-4" />
+                {downloading ? 'Preparing Export...' : 'Download VC'}
+              </Button>
+              <Link href={`/verify/${credential.studentId}`}>
+                <Button variant="outline">Open Student Verification</Button>
+              </Link>
+              {credential.certificateUrl && (
+                <a href={credential.certificateUrl} target="_blank" rel="noreferrer">
+                  <Button variant="outline">
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Certificate File
+                  </Button>
+                </a>
+              )}
+            </div>
+
+            {message && (
+              <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200">
+                {message}
+              </div>
+            )}
+
+            <div className="mt-6 grid gap-4 md:grid-cols-2">
+              <article className="rounded-[24px] border border-[var(--border-default)] bg-[var(--bg-default)] p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
+                  Signed At
+                </p>
+                <p className="mt-3 text-xl font-bold text-[var(--text-primary)]">
+                  {formatDate(credential.signedAt)}
+                </p>
+              </article>
+              <article className="rounded-[24px] border border-[var(--border-default)] bg-[var(--bg-default)] p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
+                  Issuer Domain
+                </p>
+                <p className="mt-3 break-all text-xl font-bold text-[var(--text-primary)]">
+                  {credential.institution?.domain ?? 'Not available'}
+                </p>
+              </article>
+            </div>
+          </div>
+
+          <div className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+              Verification Metadata
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-[var(--text-primary)]">
+              The cryptographic trail behind this record
+            </h2>
+
+            <div className="mt-6 space-y-4 text-sm">
+              {[
+                ['Credential hash', credential.credentialHash ?? 'Not available'],
+                ['Signature present', credential.signature ? 'Yes' : 'No'],
+                ['Key ID', credential.keyId ?? 'Not available'],
+                ['Nonce', credential.nonce ?? 'Not available'],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className="rounded-[24px] border border-[var(--border-default)] bg-[var(--bg-default)] p-4"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
+                    {label}
+                  </p>
+                  <p className="mt-3 break-all font-mono text-[var(--text-primary)]">{value}</p>
                 </div>
+              ))}
             </div>
-        </div>
-
-        {/* Technical Details */}
-        <h3 className="font-bold text-lg text-slate-900 dark:text-white mb-4">On-Chain Metadata</h3>
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-2 text-sm">
-                <span className="text-slate-500 font-medium">Transaction Hash</span>
-                <span className="font-mono text-blue-600 dark:text-blue-400 break-all bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg border border-blue-100 dark:border-blue-900/30">
-                    0x71a2b9f3e4...8d9b42fc0
-                </span>
-            </div>
-            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-2 text-sm">
-                <span className="text-slate-500 font-medium">Block Height</span>
-                <span className="font-mono text-slate-900 dark:text-white">18449021</span>
-            </div>
-            <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-2 text-sm">
-                <span className="text-slate-500 font-medium">Smart Contract</span>
-                <span className="font-mono text-slate-900 dark:text-white break-all">
-                    0xEDu...b94F
-                </span>
-            </div>
-        </div>
-
+          </div>
+        </section>
       </main>
     </div>
   );

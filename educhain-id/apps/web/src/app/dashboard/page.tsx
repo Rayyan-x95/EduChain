@@ -1,141 +1,371 @@
 'use client';
 
-import React from 'react';
 import Link from 'next/link';
+import { Bell, ChevronRight, Sparkles, Users } from 'lucide-react';
+import { BottomTabBar } from '@/components/organisms/BottomTabBar';
+import { ErrorState } from '@/components/organisms/ErrorState';
+import { VirtualStudentID } from '@/components/organisms/VirtualStudentID';
+import { CredentialCard } from '@/components/molecules/CredentialCard';
+import { ProjectCard } from '@/components/molecules/ProjectCard';
+import { Button } from '@/components/ui/Button';
+import {
+  useMyCredentials,
+  useMyProjects,
+  useProfileCompletion,
+  useStudentProfile,
+  useStudentStats,
+} from '@/hooks/api';
+
+type ProfileSkill = { skill?: { name?: string | null } | null };
+type CredentialRecord = {
+  id: string;
+  title: string;
+  credentialType: string;
+  issuedDate: string | Date;
+  status: 'active' | 'revoked';
+  signature?: string | null;
+  institution?: { name?: string | null } | null;
+};
+type ProjectRecord = {
+  id: string;
+  title: string;
+  description?: string | null;
+  repoLink?: string | null;
+};
+
+function formatDate(value: string | Date) {
+  return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' }).format(
+    new Date(value),
+  );
+}
+
+function getCredentialStatus(credential: CredentialRecord): 'verified' | 'pending' | 'revoked' {
+  if (credential.status === 'revoked') {
+    return 'revoked';
+  }
+
+  return credential.signature ? 'verified' : 'pending';
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="min-h-screen bg-[var(--bg-default)] pb-24">
+      <main id="main-content" className="mx-auto flex max-w-6xl flex-col gap-6 p-4 md:p-8">
+        <div className="h-8 w-56 animate-pulse rounded-xl bg-slate-200/70 dark:bg-slate-800/80" />
+        <div className="h-[320px] animate-pulse rounded-[28px] bg-slate-200/60 dark:bg-slate-900/80" />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div
+              key={index}
+              className="h-28 animate-pulse rounded-3xl bg-slate-200/60 dark:bg-slate-900/80"
+            />
+          ))}
+        </div>
+      </main>
+      <BottomTabBar />
+    </div>
+  );
+}
 
 export default function StudentDashboardPage() {
+  const profileQuery = useStudentProfile();
+  const statsQuery = useStudentStats();
+  const credentialsQuery = useMyCredentials();
+  const projectsQuery = useMyProjects();
+  const completionQuery = useProfileCompletion();
+
+  if (
+    profileQuery.isLoading ||
+    statsQuery.isLoading ||
+    credentialsQuery.isLoading ||
+    projectsQuery.isLoading
+  ) {
+    return <DashboardSkeleton />;
+  }
+
+  if (profileQuery.isError || statsQuery.isError || credentialsQuery.isError || projectsQuery.isError) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-default)] pb-24">
+        <main id="main-content" className="mx-auto max-w-4xl p-6 md:p-10">
+          <ErrorState
+            title="Dashboard unavailable"
+            message="We couldn't load your identity dashboard right now."
+            onRetry={() => {
+              void profileQuery.refetch();
+              void statsQuery.refetch();
+              void credentialsQuery.refetch();
+              void projectsQuery.refetch();
+            }}
+          />
+        </main>
+        <BottomTabBar />
+      </div>
+    );
+  }
+
+  const profile = profileQuery.data as
+    | {
+        id: string;
+        fullName: string;
+        degree?: string | null;
+        graduationYear?: number | null;
+        bio?: string | null;
+        institution?: { name?: string | null } | null;
+        skills?: ProfileSkill[];
+      }
+    | undefined;
+
+  if (!profile) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-default)] pb-24">
+        <main id="main-content" className="mx-auto flex max-w-2xl flex-col gap-6 p-6 md:p-10">
+          <div className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-8">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+              Setup Required
+            </p>
+            <h1 className="mt-3 text-3xl font-bold text-[var(--text-primary)]">
+              Finish your student identity
+            </h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-[var(--text-secondary)]">
+              Your dashboard will start showing verified credentials, collaboration signals, and your
+              public identity card as soon as your student profile is complete.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link href="/onboarding/profile">
+                <Button>Complete Profile</Button>
+              </Link>
+              <Link href="/auth/select-institution">
+                <Button variant="outline">Choose Institution</Button>
+              </Link>
+            </div>
+          </div>
+        </main>
+        <BottomTabBar />
+      </div>
+    );
+  }
+
+  const studentStats = (statsQuery.data ?? {}) as {
+    credentialCount?: number;
+    projectCount?: number;
+    collaboratorCount?: number;
+    groupCount?: number;
+    institutionVerified?: boolean;
+  };
+  const credentials = (((credentialsQuery.data as { credentials?: CredentialRecord[] } | undefined)?.credentials) ??
+    []) as CredentialRecord[];
+  const projects = (Array.isArray(projectsQuery.data) ? projectsQuery.data : []) as ProjectRecord[];
+  const completion = (completionQuery.data ?? { score: 0, missing: [] }) as {
+    score?: number;
+    missing?: string[];
+  };
+  const skills = (profile.skills ?? [])
+    .map((entry) => entry.skill?.name)
+    .filter((entry): entry is string => Boolean(entry))
+    .slice(0, 4);
+
+  const statCards = [
+    {
+      label: 'Verified Credentials',
+      value: studentStats.credentialCount ?? credentials.length,
+      hint: 'Institution-issued and cryptographically signed',
+      tone: 'from-blue-600/15 to-cyan-500/10 text-blue-700 dark:text-blue-300',
+    },
+    {
+      label: 'Projects',
+      value: studentStats.projectCount ?? projects.length,
+      hint: 'Portfolio work visible to collaborators and recruiters',
+      tone: 'from-emerald-500/15 to-green-500/10 text-emerald-700 dark:text-emerald-300',
+    },
+    {
+      label: 'Collaborators',
+      value: studentStats.collaboratorCount ?? 0,
+      hint: 'Accepted collaboration relationships',
+      tone: 'from-amber-500/15 to-orange-500/10 text-amber-700 dark:text-amber-300',
+    },
+    {
+      label: 'Profile Completion',
+      value: `${completion.score ?? 0}%`,
+      hint:
+        completion.missing?.length
+          ? `Missing: ${completion.missing.slice(0, 2).join(', ')}`
+          : 'Ready for talent discovery',
+      tone: 'from-fuchsia-500/15 to-pink-500/10 text-fuchsia-700 dark:text-fuchsia-300',
+    },
+  ];
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 font-sans text-slate-900 dark:text-slate-100">
-      {/* Header */}
-      <header className="flex items-center justify-between p-6 pt-8 max-w-md mx-auto w-full">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full overflow-hidden bg-slate-200 border-2 border-blue-600 p-[2px]">
-            <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop" alt="Profile" className="w-full h-full rounded-full object-cover" />
+    <div className="min-h-screen bg-[var(--bg-default)] pb-24">
+      <main id="main-content" className="mx-auto flex max-w-6xl flex-col gap-8 p-4 md:p-8">
+        <header className="flex flex-col gap-4 rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+              Verified Student Identity
+            </p>
+            <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--text-primary)]">
+              {profile.fullName}
+            </h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
+              {profile.institution?.name ?? 'Institution pending verification'}
+              {profile.degree ? ` · ${profile.degree}` : ''}
+              {profile.graduationYear ? ` · Class of ${profile.graduationYear}` : ''}
+            </p>
           </div>
-          <div className="flex flex-col">
-            <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Welcome back</span>
-            <h1 className="text-lg font-bold">Alex Chen</h1>
-          </div>
-        </div>
-        <button className="relative w-10 h-10 flex items-center justify-center rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
-          <span className="material-symbols-outlined text-slate-700 dark:text-slate-300">notifications</span>
-          <span className="absolute top-2 right-2 w-2 h-2 bg-blue-600 rounded-full"></span>
-        </button>
-      </header>
 
-      {/* Main Content */}
-      <main className="flex-1 px-6 pb-24 space-y-8 max-w-md mx-auto w-full">
-        
-        {/* Virtual ID Card */}
-        <section className="relative overflow-hidden z-10 w-full h-48 rounded-2xl p-6 flex flex-col justify-between" style={{ background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)' }}>
-          <div className="flex justify-between items-start text-white">
-            <div className="flex flex-col">
-              <span className="text-white/80 text-xs font-semibold uppercase tracking-wider mb-1">Stanford Univ.</span>
-              <span className="text-xl font-bold">Alex Chen</span>
-            </div>
-            <span className="material-symbols-outlined text-3xl opacity-50">account_balance</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link href="/groups#requests">
+              <Button variant="outline" className="gap-2">
+                <Users className="h-4 w-4" />
+                Requests
+              </Button>
+            </Link>
+            <Link href="/notifications">
+              <Button variant="ghost" size="icon" aria-label="View notifications">
+                <Bell className="h-5 w-5" />
+              </Button>
+            </Link>
           </div>
-          <div className="flex justify-between items-end text-white">
-            <div className="flex flex-col gap-1">
-              <span className="text-white/60 text-[10px] uppercase tracking-wider font-mono">DID / Blockchain ID</span>
-              <span className="font-mono text-xs font-medium tracking-wide bg-black/20 px-2 py-1 rounded-md">did:edu:0x4f...3e91</span>
-            </div>
-            <div className="bg-white p-1 rounded-md">
-              <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=did:edu:0x4f...3e91" alt="QR" className="w-10 h-10" />
-            </div>
+        </header>
+
+        <section className="grid gap-6 xl:grid-cols-[minmax(0,420px)_1fr]">
+          <VirtualStudentID
+            name={profile.fullName}
+            institution={profile.institution?.name ?? 'Institution pending'}
+            degree={profile.degree ?? 'Student'}
+            graduationYear={String(profile.graduationYear ?? 'TBD')}
+            studentId={profile.id}
+            fieldsOfInterest={skills}
+            institutionVerified={studentStats.institutionVerified ?? false}
+            credentialVerified={(studentStats.credentialCount ?? credentials.length) > 0}
+          />
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {statCards.map((card) => (
+              <article
+                key={card.label}
+                className={`rounded-[28px] border border-[var(--border-default)] bg-gradient-to-br ${card.tone} p-5 shadow-sm`}
+              >
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-current/75">
+                  {card.label}
+                </p>
+                <p className="mt-3 text-4xl font-bold tracking-tight text-[var(--text-primary)]">
+                  {card.value}
+                </p>
+                <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">{card.hint}</p>
+              </article>
+            ))}
           </div>
-          
-          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-32 h-32 rounded-full bg-white/10 blur-2xl"></div>
-          <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-32 h-32 rounded-full bg-white/10 blur-2xl"></div>
         </section>
 
-        {/* Stats Grid */}
-        <section className="grid grid-cols-2 gap-4">
-          <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl flex flex-col gap-1 shadow-sm">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-600 flex items-center justify-center mb-2">
-              <span className="material-symbols-outlined text-[18px]">workspace_premium</span>
-            </div>
-            <span className="text-2xl font-bold">12</span>
-            <span className="text-xs text-slate-500 font-medium">Verified Credentials</span>
-            <span className="text-[10px] text-green-600 font-semibold bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded w-max mt-1">+2 this month</span>
-          </div>
-          <div className="bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl flex flex-col gap-1 shadow-sm">
-            <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-900/30 text-purple-600 flex items-center justify-center mb-2">
-              <span className="material-symbols-outlined text-[18px]">account_tree</span>
-            </div>
-            <span className="text-2xl font-bold">4</span>
-            <span className="text-xs text-slate-500 font-medium">Ongoing Projects</span>
-            <span className="text-[10px] text-green-600 font-semibold bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded w-max mt-1">+1 this week</span>
-          </div>
-        </section>
-
-        {/* Activity Feed */}
-        <section className="space-y-4">
-          <div className="flex justify-between items-center px-1">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">Recent Activity</h3>
-            <button className="text-xs font-semibold text-blue-600 hover:text-blue-700">View All</button>
-          </div>
-          
-          <div className="space-y-3">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl flex items-start gap-4 shadow-sm hover:border-blue-600/50 transition-colors">
-              <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-slate-500">school</span>
+        <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+                  Credentials
+                </p>
+                <h2 className="mt-2 text-2xl font-bold text-[var(--text-primary)]">
+                  Trusted proof of academic identity
+                </h2>
               </div>
-              <div className="flex flex-col flex-1">
-                <div className="flex justify-between items-start mb-1">
-                  <span className="text-xs font-bold text-slate-900 dark:text-white">Stanford University</span>
-                  <span className="text-[10px] bg-amber-100 text-amber-700 dark:bg-amber-900/30 px-1.5 py-0.5 rounded font-mono font-bold uppercase">Pending</span>
+              <Link href="/credentials" className="text-sm font-semibold text-[var(--color-primary)]">
+                View All
+              </Link>
+            </div>
+
+            <div className="mt-6 space-y-4">
+              {credentials.length > 0 ? (
+                credentials.slice(0, 3).map((credential) => (
+                  <CredentialCard
+                    key={credential.id}
+                    title={credential.title}
+                    institution={credential.institution?.name ?? profile.institution?.name ?? 'Institution'}
+                    issueDate={formatDate(credential.issuedDate)}
+                    status={getCredentialStatus(credential)}
+                    onViewDetails={() => {
+                      window.location.href = `/credentials/${credential.id}`;
+                    }}
+                  />
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-default)] p-6 text-sm text-[var(--text-secondary)]">
+                  No credentials have been issued yet. Once your institution signs your records, they will
+                  appear here with verification status and export options.
                 </div>
-                <span className="text-sm text-slate-600 dark:text-slate-400">Issued 'B.S. CS' Degree</span>
-                <span className="text-[10px] text-slate-400 mt-2 font-mono">0x4f2...3e91</span>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+                  Projects
+                </p>
+                <h2 className="mt-2 text-2xl font-bold text-[var(--text-primary)]">
+                  Proof of execution
+                </h2>
               </div>
+              <Link href="/projects" className="text-sm font-semibold text-[var(--color-primary)]">
+                Open Projects
+              </Link>
             </div>
 
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl flex items-start gap-4 shadow-sm hover:border-blue-600/50 transition-colors">
-              <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-slate-500">code_blocks</span>
-              </div>
-              <div className="flex flex-col flex-1">
-                <div className="flex justify-between items-start mb-1">
-                  <span className="text-xs font-bold text-slate-900 dark:text-white">Google Skills</span>
-                  <span className="text-[10px] bg-green-100 text-green-700 dark:bg-green-900/30 px-1.5 py-0.5 rounded font-mono font-bold uppercase">Endorsed</span>
+            <div className="mt-6 space-y-4">
+              {projects.length > 0 ? (
+                projects.slice(0, 3).map((project) => (
+                  <ProjectCard
+                    key={project.id}
+                    title={project.title}
+                    description={project.description ?? 'No project summary added yet.'}
+                    techStack={project.repoLink ? ['Repository linked'] : []}
+                    memberCount={1}
+                    status="active"
+                    onClick={() => {
+                      window.location.href = '/projects';
+                    }}
+                  />
+                ))
+              ) : (
+                <div className="rounded-2xl border border-dashed border-[var(--border-default)] bg-[var(--bg-default)] p-6 text-sm text-[var(--text-secondary)]">
+                  Add at least one project to strengthen your identity profile for institutions,
+                  collaborators, and recruiters.
                 </div>
-                <span className="text-sm text-slate-600 dark:text-slate-400">Endorsed 'Python' expert skill</span>
-                <span className="text-[10px] text-slate-400 mt-2 font-mono">0x8a1...f0c2</span>
-              </div>
+              )}
             </div>
           </div>
         </section>
 
+        <section className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+                Next Best Actions
+              </p>
+              <h2 className="mt-2 text-2xl font-bold text-[var(--text-primary)]">
+                Increase trust and discoverability
+              </h2>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link href="/profile">
+                <Button variant="outline" className="gap-2">
+                  Complete Profile
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Link href="/groups">
+                <Button className="gap-2">
+                  Join Groups
+                  <Sparkles className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </section>
       </main>
 
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 pb-safe">
-        <div className="max-w-md mx-auto flex items-center justify-between px-6 py-3">
-          <Link href="/dashboard" className="flex flex-col items-center gap-1 text-blue-600">
-            <span className="material-symbols-outlined">dashboard</span>
-            <span className="text-[10px] font-semibold">Home</span>
-          </Link>
-          <Link href="/credentials" className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
-            <span className="material-symbols-outlined">workspace_premium</span>
-            <span className="text-[10px] font-semibold">Id Cards</span>
-          </Link>
-          <Link href="/scan" className="flex flex-col items-center gap-1 text-slate-500 relative -top-5">
-            <div className="w-12 h-12 bg-blue-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-blue-600/30">
-              <span className="material-symbols-outlined text-2xl">qr_code_scanner</span>
-            </div>
-            <span className="text-[10px] font-semibold text-slate-900 dark:text-white">Scan</span>
-          </Link>
-          <Link href="/discovery" className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
-            <span className="material-symbols-outlined">language</span>
-            <span className="text-[10px] font-semibold">Network</span>
-          </Link>
-          <Link href="/profile" className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
-            <span className="material-symbols-outlined">person</span>
-            <span className="text-[10px] font-semibold">Me</span>
-          </Link>
-        </div>
-      </nav>
+      <BottomTabBar />
     </div>
   );
 }

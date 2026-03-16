@@ -1,140 +1,144 @@
 'use client';
 
-import React from 'react';
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { Award, CalendarDays, ShieldCheck } from 'lucide-react';
 import { TopAppBar } from '@/components/ui/TopAppBar';
-import { Button } from '@/components/ui/Button';
+import { ErrorState } from '@/components/organisms/ErrorState';
+import { useMyAchievements } from '@/hooks/api';
 
-// Mock Achievement Data
-const mockAchievement = {
-  id: '1',
-  title: 'Advanced Smart Contract Security',
-  category: 'Specialization',
-  issuer: 'Stanford University',
-  status: 'ACTIVE',
-  description: 'Awarded to students who have successfully demonstrated mastery in recognizing, exploiting, and securing vulnerabilities in Ethereum smart contracts using Solidity and Rust.',
-  issueDate: 'October 12, 2025',
-  expiryDate: 'Never',
-  credentialId: 'SC-SEC-9941X',
-  type: 'Degree Equivalent',
-  skills: ['Solidity', 'Rust', 'Smart Contract Auditing', 'Truffle', 'Hardhat']
+type AchievementRecord = {
+  id: string;
+  title: string;
+  description?: string | null;
+  issuedBy?: string | null;
+  date?: string | Date | null;
 };
+
+function formatDate(value?: string | Date | null) {
+  if (!value) return 'Date not provided';
+  return new Intl.DateTimeFormat('en', { month: 'long', day: 'numeric', year: 'numeric' }).format(
+    new Date(value),
+  );
+}
 
 export default function AchievementDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const achievementsQuery = useMyAchievements();
+  const achievements = useMemo(
+    () =>
+      (Array.isArray(achievementsQuery.data) ? achievementsQuery.data : []) as AchievementRecord[],
+    [achievementsQuery.data],
+  );
+
+  const achievement = useMemo(
+    () => achievements.find((entry) => entry.id === params.id),
+    [achievements, params.id],
+  );
+
+  if (achievementsQuery.isLoading) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-default)] p-4 md:p-8">
+        <div className="mx-auto h-80 max-w-4xl animate-pulse rounded-[28px] bg-slate-200/70 dark:bg-slate-900/80" />
+      </div>
+    );
+  }
+
+  if (achievementsQuery.isError) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-default)] p-4 md:p-8">
+        <div className="mx-auto max-w-3xl">
+          <ErrorState
+            title="Achievement unavailable"
+            message="We couldn't load this achievement right now."
+            onRetry={() => void achievementsQuery.refetch()}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (!achievement) {
+    return (
+      <div className="min-h-screen bg-[var(--bg-default)] p-4 md:p-8">
+        <div className="mx-auto max-w-3xl">
+          <ErrorState title="Achievement not found" message="This achievement is not in your profile." />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 font-sans mx-auto max-w-md w-full relative">
-      
-      {/* Top Header */}
-      <TopAppBar 
-        title="" 
-        showBack={true} 
+    <div className="min-h-screen bg-[var(--bg-default)]">
+      <TopAppBar
+        title="Achievement"
+        showBack
         onBack={() => router.back()}
-        rightAction={
-          <div className="flex gap-2">
-            <Button variant="ghost" size="icon">
-              <span className="material-symbols-outlined text-slate-700 dark:text-slate-300">share</span>
-            </Button>
-            <Button variant="ghost" size="icon">
-              <span className="material-symbols-outlined text-slate-700 dark:text-slate-300">more_vert</span>
-            </Button>
-          </div>
-        }
-        className="bg-slate-50 dark:bg-slate-950 z-10 border-none"
+        className="sticky top-0 z-40 border-b border-[var(--border-default)] bg-[var(--bg-elevated)]"
       />
 
-      <div className="flex-1 overflow-y-auto w-full pb-24">
-        
-        {/* Hero Section */}
-        <div className="flex flex-col items-center pt-2 pb-6 px-4">
-          <div className="relative mb-6">
-            <div className="w-32 h-32 rounded-[2rem] rotate-3 bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shadow-lg border border-blue-200 dark:border-blue-800">
-              <span className="material-symbols-outlined text-7xl text-blue-600 dark:text-blue-500 transform -rotate-3">workspace_premium</span>
+      <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4 md:p-8">
+        <section className="rounded-[32px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-8 shadow-sm">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-blue-700 dark:bg-blue-950/40 dark:text-blue-200">
+                  Profile highlight
+                </span>
+                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-200">
+                  Verified context
+                </span>
+              </div>
+              <h1 className="mt-4 text-4xl font-bold tracking-tight text-[var(--text-primary)]">
+                {achievement.title}
+              </h1>
+              <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
+                {achievement.description ?? 'No additional description was provided for this achievement.'}
+              </p>
             </div>
-            <div className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full bg-emerald-500 border-4 border-slate-50 dark:border-slate-950 flex items-center justify-center shadow-sm z-10">
-              <span className="material-symbols-outlined text-white text-xl">verified</span>
+
+            <div className="flex h-24 w-24 items-center justify-center rounded-[28px] bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-200">
+              <Award className="h-10 w-10" />
             </div>
           </div>
-          
-          <span className="text-xs font-bold text-blue-600 dark:text-blue-400 tracking-widest uppercase mb-2">
-            {mockAchievement.category}
-          </span>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 text-center leading-tight mb-2">
-            {mockAchievement.title}
-          </h1>
-          <p className="text-sm text-slate-500 font-medium">
-            Issued by <span className="text-slate-800 dark:text-slate-200 font-semibold">{mockAchievement.issuer}</span>
-          </p>
-        </div>
+        </section>
 
-        {/* Status Banner */}
-        <div className="mx-4 mb-8 bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200 dark:border-emerald-900/50 rounded-xl p-3 flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
-            <span className="material-symbols-outlined text-lg">shield_locked</span>
-            <span className="text-sm font-semibold">Blockchain Verified</span>
-          </div>
-          <span className="px-2 py-1 rounded bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-400 text-[10px] font-bold tracking-widest">
-            {mockAchievement.status}
-          </span>
-        </div>
+        <section className="grid gap-6 md:grid-cols-3">
+          <article className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-emerald-600" />
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
+                Issuer
+              </p>
+            </div>
+            <p className="mt-3 text-xl font-bold text-[var(--text-primary)]">
+              {achievement.issuedBy ?? 'Self-reported'}
+            </p>
+          </article>
 
-        {/* Content Section */}
-        <div className="px-4 space-y-6">
-           <div className="space-y-2">
-             <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">Description</h3>
-             <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-               {mockAchievement.description}
-             </p>
-           </div>
+          <article className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-[var(--color-primary)]" />
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
+                Date
+              </p>
+            </div>
+            <p className="mt-3 text-xl font-bold text-[var(--text-primary)]">
+              {formatDate(achievement.date)}
+            </p>
+          </article>
 
-           {/* Metadata Grid */}
-           <div className="grid grid-cols-2 gap-3">
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl">
-                 <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Issue Date</span>
-                 <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{mockAchievement.issueDate}</span>
-              </div>
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl">
-                 <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Expiry Date</span>
-                 <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{mockAchievement.expiryDate}</span>
-              </div>
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl">
-                 <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Credential ID</span>
-                 <span className="text-sm font-mono font-semibold text-slate-900 dark:text-slate-100">{mockAchievement.credentialId}</span>
-              </div>
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 rounded-xl">
-                 <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Type</span>
-                 <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{mockAchievement.type}</span>
-              </div>
-           </div>
-
-           {/* Skills Demonstrated */}
-           <div className="space-y-3">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 uppercase tracking-wider">Skills Verified</h3>
-              <div className="flex flex-wrap gap-2">
-                 {mockAchievement.skills.map((skill, idx) => (
-                    <span key={idx} className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-full text-xs font-medium border border-slate-200 dark:border-slate-700">
-                      {skill}
-                    </span>
-                 ))}
-              </div>
-           </div>
-        </div>
-
-      </div>
-
-      {/* Sticky Bottom Actions */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-4 py-3 pb-safe grid grid-cols-2 gap-3 shadow-[0_-4px_24px_rgba(0,0,0,0.05)]">
-        <Button variant="outline" className="w-full h-12 rounded-xl text-slate-700 dark:text-slate-300 font-semibold gap-2 border-2">
-          <span className="material-symbols-outlined">download</span>
-          Download PDF
-        </Button>
-        <Button className="w-full h-12 rounded-xl font-semibold gap-2 shadow-lg shadow-blue-500/30">
-          <span className="material-symbols-outlined">add_to_home_screen</span>
-          Add to Wallet
-        </Button>
-      </div>
-
+          <article className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
+              Why it matters
+            </p>
+            <p className="mt-3 text-sm leading-6 text-[var(--text-secondary)]">
+              Achievements add narrative context around your credentials and project work, especially
+              when they come from a trusted institution or public event.
+            </p>
+          </article>
+        </section>
+      </main>
     </div>
   );
 }

@@ -1,5 +1,4 @@
 import React from 'react';
-import { cn } from '@/lib/utils';
 import { Avatar } from '../atoms/Avatar';
 import { Button } from '../atoms/Button';
 import { UserPlus } from 'lucide-react';

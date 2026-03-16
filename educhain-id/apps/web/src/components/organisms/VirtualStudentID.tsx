@@ -110,12 +110,18 @@ export function VirtualStudentID({
         )}
 
         {/* Verification badge */}
-        {institutionVerified && (
+        {(institutionVerified || credentialVerified) && (
           <div className="mt-5 flex items-center gap-2">
             <div className="flex items-center justify-center h-[18px] w-[18px] rounded-full bg-[#22C55E]/15">
               <ShieldCheck className="h-3 w-3 text-[#22C55E]" aria-hidden="true" />
             </div>
-            <span className="text-[12px] font-medium text-[#22C55E]/90">Verified by Institution</span>
+            <span className="text-[12px] font-medium text-[#22C55E]/90">
+              {institutionVerified && credentialVerified
+                ? 'Identity and credentials verified'
+                : institutionVerified
+                  ? 'Verified by institution'
+                  : 'Credentials verified'}
+            </span>
           </div>
         )}
       </div>

@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-import { cn } from '@/lib/utils';
+import { useState } from 'react';
 import { Modal } from './Shared';
 import { Avatar } from '../atoms/Avatar';
 import { Textarea } from '../atoms/Textarea';
@@ -15,7 +14,7 @@ interface CollaborationModalProps {
     institution: string;
     avatar?: string | null;
   };
-  onSend?: (message: string) => void;
+  onSend?: (message: string) => Promise<void> | void;
 }
 
 export function CollaborationModal({ open, onClose, targetStudent, onSend }: CollaborationModalProps) {
@@ -25,11 +24,11 @@ export function CollaborationModal({ open, onClose, targetStudent, onSend }: Col
   const handleSend = async () => {
     setSending(true);
     try {
-      onSend?.(message);
-    } finally {
-      setSending(false);
+      await onSend?.(message);
       setMessage('');
       onClose();
+    } finally {
+      setSending(false);
     }
   };
 

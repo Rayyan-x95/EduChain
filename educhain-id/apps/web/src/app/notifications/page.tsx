@@ -1,161 +1,214 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Bell, BellRing, CheckCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { TopAppBar } from '@/components/ui/TopAppBar';
 import { Button } from '@/components/ui/Button';
-import { cn } from '@/lib/utils';
+import { BottomTabBar } from '@/components/organisms/BottomTabBar';
+import { ErrorState } from '@/components/organisms/ErrorState';
+import { useMarkNotificationRead, useNotifications } from '@/hooks/api';
 
-type Tab = 'all' | 'unread' | 'archived';
-
-interface NotificationProps {
+type NotificationRecord = {
   id: string;
-  isUnread: boolean;
-  icon: string;
-  iconBg: string;
-  iconColor: string;
+  type: string;
   title: string;
-  message: string;
-  time: string;
-}
-
-const mockNotifications: Record<string, NotificationProps[]> = {
-  Today: [
-    {
-      id: '1',
-      isUnread: true,
-      icon: 'workspace_premium',
-      iconBg: 'bg-blue-100 dark:bg-blue-900/30',
-      iconColor: 'text-blue-600',
-      title: 'New Credential Issued',
-      message: 'Your Google "Advanced Blockchain Architecture" certificate is now verified and available in your wallet.',
-      time: '2m'
-    },
-    {
-      id: '2',
-      isUnread: true,
-      icon: 'sync_alt',
-      iconBg: 'bg-green-100 dark:bg-green-900/30',
-      iconColor: 'text-green-600',
-      title: 'ID Sync Complete',
-      message: 'Your Stanford identity profile has been successfully anchored to the mainnet.',
-      time: '1h'
-    }
-  ],
-  Yesterday: [
-    {
-      id: '3',
-      isUnread: false,
-      icon: 'campaign',
-      iconBg: 'bg-slate-100 dark:bg-slate-800',
-      iconColor: 'text-slate-600',
-      title: 'Platform Update',
-      message: 'EduChain ID v2.4 is live. Check out the new privacy preserving sharing features in your settings.',
-      time: '1d'
-    }
-  ]
+  body?: string | null;
+  read: boolean;
+  createdAt: string | Date;
 };
+
+function formatRelativeDate(value: string | Date) {
+  const date = new Date(value);
+  return new Intl.DateTimeFormat('en', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+}
 
 export default function NotificationsPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>('all');
+  const [page, setPage] = useState(1);
+  const [tab, setTab] = useState<'all' | 'unread'>('all');
+  const notificationsQuery = useNotifications(page);
+  const markAsRead = useMarkNotificationRead();
+
+  const payload = (notificationsQuery.data ?? {}) as {
+    notifications?: NotificationRecord[];
+    total?: number;
+    page?: number;
+    limit?: number;
+  };
+  const notifications = useMemo(
+    () => (payload.notifications ?? []) as NotificationRecord[],
+    [payload.notifications],
+  );
+  const filtered = useMemo(
+    () => notifications.filter((notification) => (tab === 'unread' ? !notification.read : true)),
+    [notifications, tab],
+  );
+
+  const totalPages =
+    payload.total && payload.limit ? Math.max(1, Math.ceil(payload.total / payload.limit)) : 1;
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans mx-auto max-w-md w-full relative">
-      
-      {/* Top Header */}
-      <TopAppBar 
-        title="Notifications" 
-        showBack={true} 
+    <div className="min-h-screen bg-[var(--bg-default)] pb-24">
+      <TopAppBar
+        title="Notifications"
+        showBack
         onBack={() => router.back()}
         rightAction={
-          <Button variant="ghost" size="icon">
-            <span className="material-symbols-outlined text-slate-700 dark:text-slate-300">more_vert</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={notifications.every((notification) => notification.read) || markAsRead.isPending}
+            onClick={() => {
+              notifications
+                .filter((notification) => !notification.read)
+                .forEach((notification) => markAsRead.mutate(notification.id));
+            }}
+            aria-label="Mark all as read"
+          >
+            <CheckCheck className="h-5 w-5" />
           </Button>
         }
-        className="bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm z-10 border-b border-slate-200 dark:border-slate-800"
+        className="sticky top-0 z-40 border-b border-[var(--border-default)] bg-[var(--bg-elevated)]"
       />
 
-      {/* Tabs */}
-      <div className="flex px-4 gap-6 bg-white dark:bg-slate-950 border-b border-slate-200 dark:border-slate-800 shrink-0">
-        {(['all', 'unread', 'archived'] as Tab[]).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={cn(
-              "py-3 text-sm font-bold capitalize tracking-wide transition-all border-b-[3px]",
-              activeTab === tab 
-                ? "border-blue-600 text-blue-600" 
-                : "border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-slate-300"
-            )}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      {/* Scrollable List */}
-      <div className="flex-1 overflow-y-auto w-full pb-20">
-        {Object.entries(mockNotifications).map(([date, items]) => (
-          <div key={date}>
-            <div className="px-4 py-2 bg-slate-100/50 dark:bg-slate-900 sticky top-0 z-10 backdrop-blur-sm">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{date}</span>
+      <main className="mx-auto flex max-w-4xl flex-col gap-6 p-4 md:p-8">
+        <section className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+                Notification Center
+              </p>
+              <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--text-primary)]">
+                Stay on top of verification activity
+              </h1>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--text-secondary)]">
+                New credentials, collaboration events, and trust-related changes appear here as soon
+                as they happen.
+              </p>
             </div>
-            <div className="divide-y divide-slate-100 dark:divide-slate-800/50">
-              {items.map((item) => (
-                <div key={item.id} className="px-4 py-4 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors flex gap-4 items-start cursor-pointer group">
-                  <div className="relative shrink-0">
-                    <div className={cn("h-12 w-12 rounded-full flex items-center justify-center", item.iconBg)}>
-                      <span className={cn("material-symbols-outlined", item.iconColor)}>{item.icon}</span>
-                    </div>
-                    {item.isUnread && (
-                      <span className="absolute top-0 right-0 h-3 w-3 bg-blue-600 rounded-full border-2 border-white dark:border-slate-950"></span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-0.5">
-                      <h4 className={cn("text-sm leading-snug truncate", item.isUnread ? "font-bold text-slate-900 dark:text-slate-100" : "font-medium text-slate-700 dark:text-slate-300")}>
-                        {item.title}
-                      </h4>
-                      <span className="text-xs font-medium text-slate-400 whitespace-nowrap ml-2">
-                        {item.time}
-                      </span>
-                    </div>
-                    <p className="text-slate-600 dark:text-slate-400 text-xs line-clamp-2 pr-2">
-                      {item.message}
-                    </p>
-                  </div>
-                </div>
+
+            <div className="flex flex-wrap gap-3">
+              {(['all', 'unread'] as const).map((value) => (
+                <button
+                  key={value}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                    tab === value
+                      ? 'bg-[var(--color-primary)] text-white'
+                      : 'bg-[var(--bg-default)] text-[var(--text-secondary)]'
+                  }`}
+                  onClick={() => setTab(value)}
+                >
+                  {value === 'all' ? 'All' : 'Unread'}
+                </button>
               ))}
             </div>
           </div>
-        ))}
-      </div>
+        </section>
 
-      {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 pb-safe">
-        <div className="max-w-md mx-auto flex items-center justify-between px-6 py-3">
-          <Link href="/dashboard" className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
-            <span className="material-symbols-outlined">home</span>
-            <span className="text-[10px] font-semibold">Home</span>
+        {notificationsQuery.isLoading ? (
+          <section className="space-y-4">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div
+                key={index}
+                className="h-28 animate-pulse rounded-[28px] bg-slate-200/70 dark:bg-slate-900/80"
+              />
+            ))}
+          </section>
+        ) : notificationsQuery.isError ? (
+          <ErrorState
+            title="Notifications unavailable"
+            message="We couldn't load your latest alerts."
+            onRetry={() => void notificationsQuery.refetch()}
+          />
+        ) : filtered.length > 0 ? (
+          <section className="space-y-4">
+            {filtered.map((notification) => (
+              <button
+                key={notification.id}
+                onClick={() => {
+                  if (!notification.read) {
+                    markAsRead.mutate(notification.id);
+                  }
+                }}
+                className={`w-full rounded-[28px] border p-6 text-left shadow-sm transition-colors ${
+                  notification.read
+                    ? 'border-[var(--border-default)] bg-[var(--bg-elevated)]'
+                    : 'border-blue-200 bg-blue-50 dark:border-blue-900/40 dark:bg-blue-950/20'
+                }`}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="mt-1 rounded-full bg-[var(--bg-default)] p-3 text-[var(--color-primary)]">
+                    {notification.read ? <Bell className="h-5 w-5" /> : <BellRing className="h-5 w-5" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+                          {notification.type.replaceAll('_', ' ')}
+                        </p>
+                        <h2 className="mt-2 text-xl font-bold text-[var(--text-primary)]">
+                          {notification.title}
+                        </h2>
+                      </div>
+                      <span className="text-xs text-[var(--text-tertiary)]">
+                        {formatRelativeDate(notification.createdAt)}
+                      </span>
+                    </div>
+                    {notification.body && (
+                      <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--text-secondary)]">
+                        {notification.body}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </section>
+        ) : (
+          <div className="rounded-[28px] border border-dashed border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 text-sm text-[var(--text-secondary)]">
+            No {tab === 'unread' ? 'unread ' : ''}notifications right now.
+          </div>
+        )}
+
+        <section className="flex items-center justify-between rounded-[24px] border border-[var(--border-default)] bg-[var(--bg-elevated)] px-4 py-3 shadow-sm">
+          <Button
+            variant="outline"
+            disabled={page <= 1}
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+          >
+            <ChevronLeft className="mr-2 h-4 w-4" />
+            Previous
+          </Button>
+          <p className="text-sm text-[var(--text-secondary)]">
+            Page {page} of {totalPages}
+          </p>
+          <Button
+            variant="outline"
+            disabled={page >= totalPages}
+            onClick={() => setPage((current) => current + 1)}
+          >
+            Next
+            <ChevronRight className="ml-2 h-4 w-4" />
+          </Button>
+        </section>
+
+        <div className="text-center text-sm text-[var(--text-secondary)]">
+          Need deeper profile controls? Visit{' '}
+          <Link href="/settings/privacy" className="font-semibold text-[var(--color-primary)] hover:underline">
+            privacy settings
           </Link>
-          <Link href="/wallet" className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
-            <span className="material-symbols-outlined">badge</span>
-            <span className="text-[10px] font-semibold">Identity</span>
-          </Link>
-          <Link href="/notifications" className="flex flex-col items-center gap-1 text-blue-600 relative">
-            <span className="material-symbols-outlined">notifications</span>
-            <span className="text-[10px] font-semibold">Alerts</span>
-            <span className="absolute top-0 right-1 border border-white dark:border-slate-950 w-2 h-2 rounded-full bg-blue-600"></span>
-          </Link>
-          <Link href="/profile" className="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
-            <span className="material-symbols-outlined">person</span>
-            <span className="text-[10px] font-semibold">Profile</span>
-          </Link>
+          .
         </div>
-      </nav>
+      </main>
 
+      <BottomTabBar />
     </div>
   );
 }

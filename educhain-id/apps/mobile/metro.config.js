@@ -10,15 +10,11 @@ const monorepoRoot = path.resolve(projectRoot, '../..');
 const config = getDefaultConfig(projectRoot);
 
 // Watch the monorepo root so Metro can resolve workspace packages
-config.watchFolders = [monorepoRoot];
+config.watchFolders = [...(config.watchFolders || []), monorepoRoot];
 
 // Let Metro resolve from both the app's and the monorepo root's node_modules
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(monorepoRoot, 'node_modules'),
 ];
-
-// Ensure the mobile app's node_modules take priority for react-native
-config.resolver.disableHierarchicalLookup = true;
-
 module.exports = config;

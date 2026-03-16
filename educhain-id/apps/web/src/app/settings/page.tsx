@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { TopAppBar } from '@/components/ui/TopAppBar';
-import { Button } from '@/components/ui/Button';
-import { cn } from '@/lib/utils';
+import { useAuth } from '@/providers/AuthProvider';
 
 interface SettingSectionProps {
   title: string;
@@ -23,15 +22,15 @@ const settingsSections: SettingSectionProps[] = [
     title: 'Account Settings',
     items: [
       { icon: 'account_circle', label: 'Personal Information', type: 'link', href: '/profile' },
-      { icon: 'lock', label: 'Password & Security', type: 'link', href: '/settings/security' },
+      { icon: 'lock', label: 'Password & Security', type: 'link', href: '/auth/forgot-password' },
       { icon: 'wallet', label: 'Identity Wallet', type: 'link', href: '/wallet' },
-      { icon: 'notifications', label: 'Notification Preferences', type: 'link', href: '/settings/notifications' },
+      { icon: 'notifications', label: 'Notification Center', type: 'link', href: '/notifications' },
     ]
   },
   {
     title: 'App Preferences',
     items: [
-      { icon: 'language', label: 'Language', type: 'link', href: '/settings/language' },
+      { icon: 'language', label: 'Language', type: 'link', href: '/language' },
       { icon: 'dark_mode', label: 'Dark Mode', type: 'toggle', value: true },
       { icon: 'security', label: 'Privacy Control', type: 'link', href: '/settings/privacy' },
     ]
@@ -56,8 +55,9 @@ const settingsSections: SettingSectionProps[] = [
 
 export default function SettingsPage() {
   const router = useRouter();
+  const { signOut } = useAuth();
 
-  const handleToggle = (label: string, currentValue: boolean | undefined) => {
+  const handleToggle = (label: string) => {
     if (label === 'Dark Mode') {
       const isDark = document.documentElement.classList.contains('dark');
       if (isDark) {
@@ -72,11 +72,11 @@ export default function SettingsPage() {
 
   const handleDangerAction = (label: string) => {
     if (label === 'Log Out') {
-      // Perform logout logic here, then redirect
-      router.push('/login');
+      void signOut().then(() => {
+        router.replace('/auth/login');
+      });
     } else if (label === 'Delete Account') {
-      // Perform account deletion logic
-      alert('Account deletion not yet implemented.');
+      router.push('/settings/privacy');
     }
   }
 
@@ -133,7 +133,7 @@ export default function SettingsPage() {
                             type="checkbox" 
                             className="sr-only peer" 
                             defaultChecked={item.value} 
-                            onChange={() => handleToggle(item.label, item.value)}
+                            onChange={() => handleToggle(item.label)}
                           />
                           <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-blue-600"></div>
                         </label>

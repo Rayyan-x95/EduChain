@@ -20,7 +20,7 @@ function createRedisConnection(): IORedis {
 }
 
 export const credentialSigningQueue = new Queue(QUEUE_NAME, {
-  connection: createRedisConnection(),
+  connection: createRedisConnection() as any,
   defaultJobOptions: {
     attempts: 3,
     backoff: { type: 'exponential', delay: 2000 },
@@ -57,7 +57,7 @@ export function startCredentialSigningWorker(prisma: PrismaClient): Worker {
       logger.info({ credentialId, jobId: job.id }, 'Credential signed successfully');
     },
     {
-      connection: createRedisConnection(),
+      connection: createRedisConnection() as any,
       concurrency: 5,
     },
   );

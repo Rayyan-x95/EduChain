@@ -1,29 +1,30 @@
 {
-  "name": "educhain-id",
-  "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
-  "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "test": "turbo run test",
-    "typecheck": "turbo run typecheck",
-    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
-  },
-  "devDependencies": {
-    "@eslint/eslintrc": "^3.3.5",
-    "prettier": "^3.2.5",
-    "turbo": "^2.3.0"
-  },
-  "packageManager": "npm@10.2.0",
-  "engines": {
-    "node": ">=20.0.0"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.99.1",
-    "uri-js": "^4.4.1"
-  }
+    "name":  "educhain-id",
+    "private":  true,
+    "workspaces":  [
+                       "apps/*",
+                       "packages/*"
+                   ],
+    "scripts":  {
+                    "build":  "turbo run build",
+                    "dev":  "turbo run dev",
+                    "lint":  "turbo run lint",
+                    "test":  "turbo run test",
+                    "typecheck":  "turbo run typecheck",
+                    "format":  "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+                    "db:setup":  "docker compose up -d postgres redis \u0026\u0026 pnpm --filter @educhain/api db:migrate \u0026\u0026 pnpm --filter @educhain/api db:seed"
+                },
+    "devDependencies":  {
+                            "@eslint/eslintrc":  "^3.3.5",
+                            "prettier":  "^3.2.5",
+                            "turbo":  "^2.3.0"
+                        },
+    "engines":  {
+                    "node":  "\u003e=20.0.0"
+                },
+    "dependencies":  {
+                         "@supabase/supabase-js":  "^2.99.1",
+                         "uri-js":  "^4.4.1"
+                     },
+    "packageManager":  "pnpm@9.0.0"
 }

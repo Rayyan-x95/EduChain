@@ -6,7 +6,11 @@ import { z } from 'zod';
 
 export const followStudentSchema = z.object({
   target_student_id: z.string().uuid(),
-});
+}).or(z.object({
+  targetStudentId: z.string().uuid(),
+}).transform((data) => ({
+  target_student_id: data.targetStudentId,
+})));
 
 export type FollowStudentInput = z.infer<typeof followStudentSchema>;
 
@@ -17,7 +21,13 @@ export type FollowStudentInput = z.infer<typeof followStudentSchema>;
 export const sendCollaborationRequestSchema = z.object({
   receiver_id: z.string().uuid(),
   message: z.string().max(1000).optional(),
-});
+}).or(z.object({
+  receiverId: z.string().uuid(),
+  message: z.string().max(1000).optional(),
+}).transform((data) => ({
+  receiver_id: data.receiverId,
+  message: data.message,
+})));
 
 export type SendCollaborationRequestInput = z.infer<typeof sendCollaborationRequestSchema>;
 

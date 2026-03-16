@@ -1,109 +1,152 @@
 'use client';
 
-import React, { useState } from 'react';
 import Link from 'next/link';
+import { DashboardLayout } from '@/components/layouts/DashboardLayout';
+import { ErrorState } from '@/components/organisms/ErrorState';
 import { Button } from '@/components/ui/Button';
+import { useRemoveFromShortlist, useShortlist } from '@/hooks/api';
+import { useAuth } from '@/providers/AuthProvider';
 
-// Mock Data
-const shortlisted = [
-  { id: '1', name: 'Alina Smith', school: 'MIT', degree: 'M.S. Computer Science', status: 'Interviewing', appliedFor: 'Senior Blockchain Dev', match: 98, verified: true, avatar: 'AS' },
-  { id: '2', name: 'Raj Patel', school: 'Stanford Univ.', degree: 'B.S. Software Eng.', status: 'Reviewing', appliedFor: 'Frontend Engineer', match: 85, verified: true, avatar: 'RP' },
-];
+type ShortlistEntry = {
+  note?: string | null;
+  student?: {
+    id: string;
+    fullName?: string | null;
+    degree?: string | null;
+    graduationYear?: number | null;
+    institution?: { name?: string | null } | null;
+    skills?: Array<{ skill?: { name?: string | null } | null }>;
+  } | null;
+};
+
+function displayNameFromEmail(email?: string | null) {
+  if (!email) return 'Recruiter';
+  return (email.split('@')[0] ?? 'Recruiter')
+    .split(/[._-]/)
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(' ');
+}
 
 export default function RecruiterShortlistPage() {
+  const { user } = useAuth();
+  const shortlistQuery = useShortlist();
+  const removeMutation = useRemoveFromShortlist();
+
+  const layoutUser = {
+    name: displayNameFromEmail(user?.email),
+    email: user?.email ?? 'recruiter@educhain.local',
+    avatar: null,
+  };
+
+  const shortlist = (((shortlistQuery.data as { shortlist?: ShortlistEntry[] } | undefined)?.shortlist) ??
+    []) as ShortlistEntry[];
+
   return (
-    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 font-sans">
-      
-      {/* Sidebar - Recruiter Theme */}
-      <aside className="hidden lg:flex flex-col w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 sticky top-0">
-        <div className="flex items-center gap-2 p-6 border-b border-slate-200 dark:border-slate-800">
-          <div className="w-8 h-8 rounded bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-white">
-             <span className="material-symbols-outlined text-sm">radar</span>
-          </div>
-          <span className="font-bold text-lg text-slate-900 dark:text-white tracking-tight">Talent Scout</span>
-        </div>
-        <nav className="flex-1 p-4 space-y-1">
-          <Link href="/recruiter/discover" className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors font-medium">
-            <span className="material-symbols-outlined">person_search</span>
-            Discover
-          </Link>
-          <Link href="/recruiter/shortlist" className="flex items-center gap-3 px-3 py-2 rounded-lg bg-purple-50 text-purple-700 dark:bg-purple-900/20 dark:text-purple-400 font-semibold border-transparent">
-            <span className="material-symbols-outlined">bookmarks</span>
-            Shortlist
-          </Link>
-          <Link href="/recruiter/analytics" className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors font-medium">
-            <span className="material-symbols-outlined">insights</span>
-            Analytics
-          </Link>
-        </nav>
-      </aside>
+    <DashboardLayout role="recruiter" user={layoutUser}>
+      <section className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+          Shortlist
+        </p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--text-primary)]">
+          Candidates worth following up
+        </h1>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--text-secondary)]">
+          Keep the students whose credentials and project record match the roles you are actively
+          hiring for.
+        </p>
+      </section>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden relative">
-        <header className="sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center justify-between p-4 md:px-8 md:py-6 bg-white/80 dark:bg-slate-950/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 gap-4">
-           <div>
-             <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white">Shortlist</h1>
-             <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Manage your saved candidates and pipeline.</p>
-           </div>
-        </header>
+      {shortlistQuery.isLoading ? (
+        <section className="mt-6 space-y-4">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={index}
+              className="h-40 animate-pulse rounded-[28px] bg-slate-200/70 dark:bg-slate-900/80"
+            />
+          ))}
+        </section>
+      ) : shortlistQuery.isError ? (
+        <section className="mt-6">
+          <ErrorState
+            title="Shortlist unavailable"
+            message="We couldn't load your saved candidates."
+            onRetry={() => void shortlistQuery.refetch()}
+          />
+        </section>
+      ) : (
+        <section className="mt-6 space-y-4">
+          {shortlist.length > 0 ? (
+            shortlist.map((entry) => {
+              const student = entry.student;
+              const skills = (student?.skills ?? [])
+                .map((skill) => skill.skill?.name)
+                .filter((skill): skill is string => Boolean(skill));
 
-        <div className="flex-1 overflow-y-auto p-4 md:px-8 md:py-6 w-full">
-            {/* Table */}
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 font-medium">
-                        <tr>
-                            <th className="px-6 py-4">Candidate</th>
-                            <th className="px-6 py-4 hidden md:table-cell">Target Role</th>
-                            <th className="px-6 py-4">Status</th>
-                            <th className="px-6 py-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {shortlisted.map((c) => (
-                            <tr key={c.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 flex items-center justify-center font-bold">
-                                            {c.avatar}
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-slate-900 dark:text-white">{c.name}</div>
-                                            <div className="text-xs text-slate-500">{c.school}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4 hidden md:table-cell text-slate-600 dark:text-slate-300">
-                                    {c.appliedFor}
-                                </td>
-                                <td className="px-6 py-4">
-                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
-                                        c.status === 'Interviewing' 
-                                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' 
-                                        : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                                    }`}>
-                                        {c.status}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <Button variant="ghost" size="sm" className="text-purple-600 hover:text-purple-700 hover:bg-purple-50">
-                                        Message
-                                    </Button>
-                                </td>
-                            </tr>
-                        ))}
-                        {shortlisted.length === 0 && (
-                            <tr>
-                                <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
-                                    No candidates shortlisted yet.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+              return (
+                <article
+                  key={student?.id ?? 'unknown'}
+                  className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm"
+                >
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <h2 className="text-2xl font-bold text-[var(--text-primary)]">
+                        {student?.fullName ?? 'Unknown student'}
+                      </h2>
+                      <p className="mt-2 text-sm text-[var(--text-secondary)]">
+                        {student?.institution?.name ?? 'Institution not listed'}
+                        {student?.degree ? ` · ${student.degree}` : ''}
+                        {student?.graduationYear ? ` · ${student.graduationYear}` : ''}
+                      </p>
+
+                      {skills.length > 0 && (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {skills.map((skill) => (
+                            <span
+                              key={skill}
+                              className="rounded-full border border-[var(--border-default)] bg-[var(--bg-default)] px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)]"
+                            >
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {entry.note && (
+                        <p className="mt-4 max-w-2xl text-sm leading-6 text-[var(--text-secondary)]">
+                          {entry.note}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                      {student?.id && (
+                        <Link href={`/recruiter/contact/${student.id}`}>
+                          <Button>Message Candidate</Button>
+                        </Link>
+                      )}
+                      {student?.id && (
+                        <Button
+                          variant="outline"
+                          disabled={removeMutation.isPending}
+                          onClick={() => removeMutation.mutate(student.id)}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              );
+            })
+          ) : (
+            <div className="rounded-[28px] border border-dashed border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 text-sm text-[var(--text-secondary)]">
+              No candidates shortlisted yet. Start from the discover screen and save students with
+              strong trust signals.
             </div>
-        </div>
-      </main>
-    </div>
+          )}
+        </section>
+      )}
+    </DashboardLayout>
   );
 }

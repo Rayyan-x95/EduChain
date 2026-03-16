@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Avatar } from '../atoms/Avatar';
-import { Button } from '../atoms/Button';
 import { EduChainLogo } from '../atoms/EduChainLogo';
 import { useTheme } from '@/providers/ThemeProvider';
+import { useAuth } from '@/providers/AuthProvider';
 import {
   LayoutDashboard,
   Users,
@@ -29,7 +29,7 @@ type UserRole = 'institution_admin' | 'recruiter' | 'student';
 const ROLE_ROUTE_PREFIX: Record<UserRole, string> = {
   institution_admin: 'institution',
   recruiter: 'recruiter',
-  student: 'student',
+  student: '',
 };
 
 interface NavItem {
@@ -41,9 +41,8 @@ interface NavItem {
 const NAV_ITEMS: Record<UserRole, NavItem[]> = {
   institution_admin: [
     { label: 'Dashboard', href: '/institution/dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
-    { label: 'Students', href: '/institution/students', icon: <Users className="h-5 w-5" /> },
-    { label: 'Credentials', href: '/institution/credentials', icon: <FileCheck className="h-5 w-5" /> },
-    { label: 'Analytics', href: '/institution/analytics', icon: <BookOpen className="h-5 w-5" /> },
+    { label: 'Verification Requests', href: '/institution/requests', icon: <Users className="h-5 w-5" /> },
+    { label: 'Issue Credential', href: '/institution/issue', icon: <FileCheck className="h-5 w-5" /> },
     { label: 'Settings', href: '/institution/settings', icon: <Settings className="h-5 w-5" /> },
   ],
   recruiter: [
@@ -53,12 +52,12 @@ const NAV_ITEMS: Record<UserRole, NavItem[]> = {
     { label: 'Settings', href: '/recruiter/settings', icon: <Settings className="h-5 w-5" /> },
   ],
   student: [
-    { label: 'Home', href: '/student/home', icon: <LayoutDashboard className="h-5 w-5" /> },
-    { label: 'Profile', href: '/student/profile', icon: <Users className="h-5 w-5" /> },
-    { label: 'Credentials', href: '/student/credentials', icon: <FileCheck className="h-5 w-5" /> },
-    { label: 'Projects', href: '/student/projects', icon: <BookOpen className="h-5 w-5" /> },
-    { label: 'Collaborations', href: '/student/collaborations', icon: <Search className="h-5 w-5" /> },
-    { label: 'Search', href: '/student/search', icon: <Search className="h-5 w-5" /> },
+    { label: 'Home', href: '/dashboard', icon: <LayoutDashboard className="h-5 w-5" /> },
+    { label: 'Discover', href: '/discovery', icon: <Search className="h-5 w-5" /> },
+    { label: 'Projects', href: '/projects', icon: <BookOpen className="h-5 w-5" /> },
+    { label: 'Credentials', href: '/credentials', icon: <FileCheck className="h-5 w-5" /> },
+    { label: 'Collaborations', href: '/groups', icon: <Users className="h-5 w-5" /> },
+    { label: 'Profile', href: '/profile', icon: <Users className="h-5 w-5" /> },
   ],
 };
 
@@ -74,8 +73,10 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ role, user, children }: DashboardLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const { signOut } = useAuth();
   const darkMode = theme === 'dark';
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -111,7 +112,8 @@ export function DashboardLayout({ role, user, children }: DashboardLayoutProps) 
 
   const navItems = NAV_ITEMS[role];
   const routePrefix = ROLE_ROUTE_PREFIX[role];
-  const settingsHref = `/${routePrefix}/settings`;
+  const settingsHref = routePrefix ? `/${routePrefix}/settings` : '/settings';
+  const homeHref = routePrefix ? `/${routePrefix}/dashboard` : '/dashboard';
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--bg-default)]">
@@ -133,7 +135,7 @@ export function DashboardLayout({ role, user, children }: DashboardLayoutProps) 
       >
         {/* Logo area */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-[var(--border-subtle)]">
-          <Link href={`/${routePrefix}/dashboard`} className="flex items-center gap-2">
+          <Link href={homeHref} className="flex items-center gap-2">
             <EduChainLogo size={32} />
             <span className="text-h4 text-[var(--text-primary)]">EduChain</span>
           </Link>
@@ -234,7 +236,11 @@ export function DashboardLayout({ role, user, children }: DashboardLayoutProps) 
                     </Link>
                     <button
                       className="flex items-center gap-2 w-full px-4 py-2 text-body text-[var(--color-danger)] hover:bg-[var(--bg-surface)]"
-                      onClick={() => setProfileMenuOpen(false)}
+                      onClick={async () => {
+                        setProfileMenuOpen(false);
+                        await signOut();
+                        router.replace('/auth/login');
+                      }}
                       role="menuitem"
                     >
                       <LogOut className="h-4 w-4" />

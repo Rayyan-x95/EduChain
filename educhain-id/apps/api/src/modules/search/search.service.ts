@@ -59,16 +59,18 @@ export class SearchService {
     }
 
     // Skill filter
-    if (params.skill) {
+    if (params.skills?.length) {
       where.skills = {
         some: {
-          skill: { name: { equals: params.skill, mode: 'insensitive' } },
+          OR: params.skills.map((skill) => ({
+            skill: { name: { equals: skill, mode: 'insensitive' } },
+          })),
         },
       };
     }
 
     // Verified credentials filter
-    if (params.verified_credentials === 'true') {
+    if (params.verified_credentials) {
       where.credentials = {
         some: {
           status: 'active',

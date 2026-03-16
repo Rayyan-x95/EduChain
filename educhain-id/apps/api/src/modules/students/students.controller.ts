@@ -48,4 +48,14 @@ export class StudentsController {
     const result = await this.studentsService.getProfileCompletion(userId);
     reply.status(200).send({ success: true, data: result });
   };
+
+  getMyStats = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const result = await this.studentsService.getStudentStats(request.user!.userId);
+    reply.status(200).send({ success: true, data: result });
+  };
+
+  getInstitutionStats = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const result = await this.studentsService.getInstitutionStats(request.user!.userId);
+    reply.status(200).send({ success: true, data: result });
+  };
 }

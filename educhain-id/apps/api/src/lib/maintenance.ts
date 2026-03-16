@@ -8,26 +8,21 @@ import { GDPRService } from '../modules/gdpr/gdpr.service';
  */
 
 /**
- * Archive old notifications by moving them to notifications_archive
- * and deleting from the primary table.
+ * Prune old notifications.
+ *
+ * Note: We previously attempted to archive to a `notifications_archive` table,
+ * but the MVP schema doesn't include it. For production readiness, we keep
+ * retention simple and delete old read notifications.
  */
 export async function archiveOldNotifications(prisma: PrismaClient): Promise<number> {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - env.NOTIFICATION_ARCHIVE_DAYS);
 
-  // Move read notifications older than the cutoff to the archive table
-  const result = await prisma.$executeRaw`
-    WITH moved AS (
-      DELETE FROM notifications
-      WHERE read = true AND created_at < ${cutoff}
-      RETURNING id, user_id, type, title, message, data, read, created_at
-    )
-    INSERT INTO notifications_archive (id, user_id, type, title, message, data, read, created_at, archived_at)
-    SELECT id, user_id, type, title, message, data, read, created_at, NOW()
-    FROM moved
-  `;
+  const result = await prisma.notification.deleteMany({
+    where: { read: true, createdAt: { lt: cutoff } },
+  });
 
-  return result;
+  return result.count;
 }
 
 /**
@@ -50,11 +45,11 @@ export async function pruneAuditLogs(prisma: PrismaClient): Promise<number> {
  */
 export async function cleanExpiredTokens(prisma: PrismaClient): Promise<{ verifications: number; resets: number }> {
   const [verifications, resets] = await Promise.all([
-    prisma.$executeRaw`DELETE FROM email_verifications WHERE expires_at < NOW()`,
-    prisma.$executeRaw`DELETE FROM password_resets WHERE expires_at < NOW()`,
+    prisma.emailVerification.deleteMany({ where: { expiresAt: { lt: new Date() } } }),
+    prisma.passwordReset.deleteMany({ where: { expiresAt: { lt: new Date() } } }),
   ]);
 
-  return { verifications, resets };
+  return { verifications: verifications.count, resets: resets.count };
 }
 
 /**

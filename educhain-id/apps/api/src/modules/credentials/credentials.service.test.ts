@@ -1,5 +1,6 @@
 import { CredentialsService } from './credentials.service';
-import { AppError } from '../../middleware/errorHandler';
+import { enqueueCredentialSigning } from '../../queue/credential.queue';
+import { generateCredentialHash, signCredential } from '../../lib/credential.crypto';
 
 // Mock the queue module so tests don't need Redis
 jest.mock('../../queue/credential.queue', () => ({
@@ -39,7 +40,7 @@ function createMockPrisma() {
     auditLog: {
       create: jest.fn(),
     },
-    keyVersion: {
+    institutionKey: {
       create: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
@@ -68,7 +69,11 @@ describe('CredentialsService', () => {
   // -----------------------------------------------------------------------
   describe('generateKeys', () => {
     it('should generate and store a key pair for an institution', async () => {
-      prisma.institution.findUnique.mockResolvedValue({ id: 'inst-1', publicKey: null });
+      prisma.user.findUnique.mockResolvedValue({ id: 'admin-1', email: 'admin@mit.edu', role: 'institution_admin' });
+      prisma.institution.findUnique.mockImplementation(({ where }: any) => {
+        if (where?.id === 'inst-1') return Promise.resolve({ id: 'inst-1', domain: 'mit.edu', publicKey: null });
+        return Promise.resolve(null);
+      });
       prisma.institution.update.mockResolvedValue({ id: 'inst-1', publicKey: 'PEM...' });
 
       const result = await service.generateKeys('inst-1', 'admin-1', 'institution_admin');
@@ -79,6 +84,7 @@ describe('CredentialsService', () => {
     });
 
     it('should throw 404 if institution not found', async () => {
+      prisma.user.findUnique.mockResolvedValue({ id: 'admin-1', email: 'admin@mit.edu', role: 'institution_admin' });
       prisma.institution.findUnique.mockResolvedValue(null);
 
       await expect(
@@ -87,7 +93,11 @@ describe('CredentialsService', () => {
     });
 
     it('should throw 409 if institution already has keys', async () => {
-      prisma.institution.findUnique.mockResolvedValue({ id: 'inst-1', publicKey: 'existing' });
+      prisma.user.findUnique.mockResolvedValue({ id: 'admin-1', email: 'admin@mit.edu', role: 'institution_admin' });
+      prisma.institution.findUnique.mockImplementation(({ where }: any) => {
+        if (where?.id === 'inst-1') return Promise.resolve({ id: 'inst-1', domain: 'mit.edu', publicKey: 'existing' });
+        return Promise.resolve(null);
+      });
 
       await expect(
         service.generateKeys('inst-1', 'admin-1', 'institution_admin'),
@@ -123,6 +133,7 @@ describe('CredentialsService', () => {
 
     it('should issue a credential and sign it when private key is available', async () => {
       mockKeyStoreMap.set('inst-1', testKeyPair.privateKey);
+      prisma.institutionKey.findFirst.mockResolvedValue({ id: 'key-1' });
 
       const result = await service.issueCredential('admin-1', 'institution_admin', issueData);
 
@@ -133,8 +144,6 @@ describe('CredentialsService', () => {
     });
 
     it('should issue credential without signature and enqueue signing if no key', async () => {
-      const { enqueueCredentialSigning } = require('../../queue/credential.queue');
-
       const result = await service.issueCredential('admin-1', 'institution_admin', issueData);
 
       expect(result.signature).toBeNull();
@@ -164,6 +173,7 @@ describe('CredentialsService', () => {
   describe('signPendingCredential', () => {
     it('should sign an unsigned credential', async () => {
       mockKeyStoreMap.set('inst-1', testKeyPair.privateKey);
+      prisma.institutionKey.findFirst.mockResolvedValue({ id: 'key-1' });
       prisma.credential.findUnique.mockResolvedValue({
         id: 'cred-1',
         institutionId: 'inst-1',
@@ -218,7 +228,6 @@ describe('CredentialsService', () => {
   // -----------------------------------------------------------------------
   describe('verifyCredential', () => {
     it('should return verified=true for a valid signed credential', async () => {
-      const { generateCredentialHash, signCredential } = require('../../lib/credential.crypto');
       const payload = {
         studentId: 'student-1',
         institutionId: 'inst-1',

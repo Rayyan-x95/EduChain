@@ -203,11 +203,11 @@ export class AuthService {
     const hashedToken = this.hashToken(token);
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    await this.prisma.$executeRaw`
-      INSERT INTO email_verifications (id, user_id, token, expires_at)
-      VALUES (gen_random_uuid(), ${userId}::uuid, ${hashedToken}, ${expiresAt})
-      ON CONFLICT (user_id) DO UPDATE SET token = ${hashedToken}, expires_at = ${expiresAt}
-    `;
+    await this.prisma.emailVerification.upsert({
+      where: { userId },
+      create: { userId, token: hashedToken, expiresAt },
+      update: { token: hashedToken, expiresAt },
+    });
 
     const verifyUrl = `${process.env.CORS_ORIGIN ?? 'http://localhost:3000'}/auth/verify-email?token=${token}`;
 
@@ -227,25 +227,25 @@ export class AuthService {
   async verifyEmail(token: string): Promise<{ verified: boolean }> {
     const hashedToken = this.hashToken(token);
 
-    const rows = await this.prisma.$queryRaw<Array<{ user_id: string; expires_at: Date }>>`
-      SELECT user_id, expires_at FROM email_verifications WHERE token = ${hashedToken}
-    `;
+    const record = await this.prisma.emailVerification.findUnique({
+      where: { token: hashedToken },
+      select: { userId: true, expiresAt: true },
+    });
 
-    if (!rows || rows.length === 0) {
+    if (!record) {
       throw new AppError(400, 'Invalid verification token');
     }
 
-    if (new Date(rows[0].expires_at) < new Date()) {
+    if (new Date(record.expiresAt) < new Date()) {
       throw new AppError(400, 'Verification token has expired');
     }
 
-    await this.prisma.$executeRaw`
-      UPDATE users SET email_verified = true WHERE id = ${rows[0].user_id}::uuid
-    `;
+    await this.prisma.user.update({
+      where: { id: record.userId },
+      data: { emailVerified: true, emailVerifiedAt: new Date() },
+    });
 
-    await this.prisma.$executeRaw`
-      DELETE FROM email_verifications WHERE user_id = ${rows[0].user_id}::uuid
-    `;
+    await this.prisma.emailVerification.delete({ where: { userId: record.userId } });
 
     return { verified: true };
   }
@@ -263,11 +263,11 @@ export class AuthService {
     const hashedToken = this.hashToken(token);
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
-    await this.prisma.$executeRaw`
-      INSERT INTO password_resets (id, user_id, token, expires_at)
-      VALUES (gen_random_uuid(), ${user.id}::uuid, ${hashedToken}, ${expiresAt})
-      ON CONFLICT (user_id) DO UPDATE SET token = ${hashedToken}, expires_at = ${expiresAt}
-    `;
+    await this.prisma.passwordReset.upsert({
+      where: { userId: user.id },
+      create: { userId: user.id, token: hashedToken, expiresAt },
+      update: { token: hashedToken, expiresAt },
+    });
 
     const resetUrl = `${process.env.CORS_ORIGIN ?? 'http://localhost:3000'}/auth/reset-password?token=${token}`;
 
@@ -287,32 +287,32 @@ export class AuthService {
   async resetPassword(token: string, newPassword: string): Promise<void> {
     const hashedToken = this.hashToken(token);
 
-    const rows = await this.prisma.$queryRaw<Array<{ user_id: string; expires_at: Date }>>`
-      SELECT user_id, expires_at FROM password_resets WHERE token = ${hashedToken}
-    `;
+    const record = await this.prisma.passwordReset.findUnique({
+      where: { token: hashedToken },
+      select: { userId: true, expiresAt: true },
+    });
 
-    if (!rows || rows.length === 0) {
+    if (!record) {
       throw new AppError(400, 'Invalid or expired reset token');
     }
 
-    if (new Date(rows[0].expires_at) < new Date()) {
+    if (new Date(record.expiresAt) < new Date()) {
       throw new AppError(400, 'Reset token has expired');
     }
 
     const passwordHash = await hashPassword(newPassword);
 
-    await this.prisma.$executeRaw`
-      UPDATE users SET password_hash = ${passwordHash} WHERE id = ${rows[0].user_id}::uuid
-    `;
+    await this.prisma.user.update({
+      where: { id: record.userId },
+      data: { passwordHash },
+    });
 
     // Clean up the reset token and revoke all refresh tokens
-    await this.prisma.$executeRaw`
-      DELETE FROM password_resets WHERE user_id = ${rows[0].user_id}::uuid
-    `;
-    await this.prisma.refreshToken.deleteMany({ where: { userId: rows[0].user_id } });
+    await this.prisma.passwordReset.delete({ where: { userId: record.userId } });
+    await this.prisma.refreshToken.deleteMany({ where: { userId: record.userId } });
 
     // Clear Redis auth cache so old sessions are invalidated immediately
-    const user = await this.prisma.user.findUnique({ where: { id: rows[0].user_id } });
+    const user = await this.prisma.user.findUnique({ where: { id: record.userId } });
     if (user) {
       const { cacheDelete } = await import('../../lib/cache');
       await cacheDelete(`auth:user:${user.email}`);

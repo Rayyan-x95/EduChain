@@ -29,7 +29,7 @@ export async function authenticateToken(
 ): Promise<void> {
   const authHeader = request.headers.authorization;
   // First check HTTP-only cookies for improved security
-  const cookieToken = request.cookies?.['access_token'];
+  const cookieToken = (request as any).cookies?.['access_token'];
   const token = cookieToken || (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null);
   if (!token) {
     reply.status(401).send({ success: false, error: 'Access token required' });
@@ -37,6 +37,13 @@ export async function authenticateToken(
   }
 
   try {
+    // Check if token is in Redis denylist
+    const isRevoked = await cacheGet(`revoked:${token}`);
+    if (isRevoked) {
+      reply.status(401).send({ success: false, error: 'Token has been revoked' });
+      return;
+    }
+
     const decoded = jwt.verify(token, env.SUPABASE_JWT_SECRET) as {
       sub: string;
       email?: string;

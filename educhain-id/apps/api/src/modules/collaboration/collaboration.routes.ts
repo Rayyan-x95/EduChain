@@ -7,7 +7,6 @@ import { validateBody } from '../../middleware/validateBody';
 import {
   followStudentSchema,
   sendCollaborationRequestSchema,
-  handleCollaborationRequestSchema,
   createGroupSchema,
   addGroupMemberSchema,
 } from '@educhain/validators';
@@ -35,6 +34,12 @@ export async function collaborationRoutes(fastify: FastifyInstance): Promise<voi
 
   // Collaboration Requests
   fastify.post(
+    '/collaboration/request',
+    { preHandler: [authenticateToken, authorizeRole(['student']), validateBody(sendCollaborationRequestSchema)] },
+    collaborationController.sendCollaborationRequest,
+  );
+
+  fastify.post(
     '/collaborations/request',
     { preHandler: [authenticateToken, authorizeRole(['student']), validateBody(sendCollaborationRequestSchema)] },
     collaborationController.sendCollaborationRequest,
@@ -58,6 +63,30 @@ export async function collaborationRoutes(fastify: FastifyInstance): Promise<voi
     collaborationController.listCollaborationRequests,
   );
 
+  fastify.get(
+    '/collaborations/incoming',
+    { preHandler: [authenticateToken, authorizeRole(['student'])] },
+    collaborationController.listIncomingCollaborationRequests,
+  );
+
+  fastify.get(
+    '/collaborations/outgoing',
+    { preHandler: [authenticateToken, authorizeRole(['student'])] },
+    collaborationController.listOutgoingCollaborationRequests,
+  );
+
+  fastify.get(
+    '/collaborations/active',
+    { preHandler: [authenticateToken, authorizeRole(['student'])] },
+    collaborationController.listActiveCollaborators,
+  );
+
+  fastify.get(
+    '/collaborations/activity',
+    { preHandler: [authenticateToken, authorizeRole(['student'])] },
+    collaborationController.getActivityFeed,
+  );
+
   // Groups
   fastify.post(
     '/groups',
@@ -69,6 +98,12 @@ export async function collaborationRoutes(fastify: FastifyInstance): Promise<voi
     '/groups',
     { preHandler: [authenticateToken, authorizeRole(['student'])] },
     collaborationController.listGroups,
+  );
+
+  fastify.get(
+    '/groups/:group_id',
+    { preHandler: [authenticateToken, authorizeRole(['student'])] },
+    collaborationController.getGroupById,
   );
 
   fastify.post(

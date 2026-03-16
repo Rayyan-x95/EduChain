@@ -54,7 +54,32 @@ export class VerificationsService {
     });
   }
 
-  async listByInstitution(institutionId: string, status?: string, page = 1, limit = 20) {
+  async listByInstitution(
+    requesterUserId: string,
+    requesterRole: string,
+    institutionId: string,
+    status?: string,
+    page = 1,
+    limit = 20,
+  ) {
+    // Institution admins may only access their own institution's queue.
+    // Platform admins can access any institution (explicitly).
+    if (requesterRole === 'institution_admin') {
+      const [user, institution] = await Promise.all([
+        this.prisma.user.findUnique({ where: { id: requesterUserId }, select: { email: true } }),
+        this.prisma.institution.findUnique({ where: { id: institutionId }, select: { domain: true } }),
+      ]);
+
+      if (!user || !institution) {
+        throw new AppError(404, 'Institution not found');
+      }
+
+      const emailDomain = user.email.split('@')[1] ?? '';
+      if (emailDomain.toLowerCase() !== institution.domain.toLowerCase()) {
+        throw new AppError(403, 'Forbidden');
+      }
+    }
+
     const take = Math.min(limit, 100);
     const skip = (page - 1) * take;
 
@@ -75,6 +100,16 @@ export class VerificationsService {
     ]);
 
     return { requests, total, page, limit: take };
+  }
+
+  async listByCurrentInstitution(
+    requesterUserId: string,
+    status?: string,
+    page = 1,
+    limit = 20,
+  ) {
+    const institutionId = await this.findInstitutionIdForAdmin(requesterUserId);
+    return this.listByInstitution(requesterUserId, 'institution_admin', institutionId, status, page, limit);
   }
 
   async reviewVerification(
@@ -110,5 +145,32 @@ export class VerificationsService {
     }
 
     return updated;
+  }
+
+  private async findInstitutionIdForAdmin(userId: string): Promise<string> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, role: true },
+    });
+
+    if (!user) {
+      throw new AppError(404, 'User not found');
+    }
+
+    if (user.role !== 'institution_admin') {
+      throw new AppError(403, 'Only institution administrators can access this queue');
+    }
+
+    const domain = user.email.split('@')[1] ?? '';
+    const institution = await this.prisma.institution.findUnique({
+      where: { domain },
+      select: { id: true },
+    });
+
+    if (!institution) {
+      throw new AppError(404, 'Institution not found for your account');
+    }
+
+    return institution.id;
   }
 }

@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { Chip } from '../atoms/Chip';
 import { Input } from '../atoms/Input';
 import { Button } from '../atoms/Button';
-import { Search, SlidersHorizontal } from 'lucide-react';
+import { Search } from 'lucide-react';
 
 interface SearchFilterPanelProps {
   availableSkills: string[];

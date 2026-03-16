@@ -110,6 +110,42 @@ export function useMySkills() {
   });
 }
 
+export function useAllSkills() {
+  return useQuery({
+    queryKey: ['skills', 'all'],
+    queryFn: () => apiFetch<ApiResponse<any>>('/skills').then((r) => r.data!),
+  });
+}
+
+export function useAddSkill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) =>
+      apiFetch<ApiResponse<any>>('/skills/me', {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['skills'] });
+      qc.invalidateQueries({ queryKey: ['student', 'profile'] });
+    },
+  });
+}
+
+export function useRemoveSkill() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (skillId: number | string) =>
+      apiFetch<ApiResponse<any>>(`/skills/me/${skillId}`, {
+        method: 'DELETE',
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['skills'] });
+      qc.invalidateQueries({ queryKey: ['student', 'profile'] });
+    },
+  });
+}
+
 export function useSkillAutocomplete(query: string) {
   return useQuery({
     queryKey: ['skills', 'autocomplete', query],
@@ -168,7 +204,10 @@ export function useSendCollaboration() {
     mutationFn: (data: { receiverId: string; message?: string }) =>
       apiFetch<ApiResponse<any>>('/collaborations/request', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          receiver_id: data.receiverId,
+          message: data.message,
+        }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['collaborations'] }),
   });
@@ -198,6 +237,14 @@ export function useGroupById(id: string) {
   });
 }
 
+export function useMyGroups() {
+  return useQuery({
+    queryKey: ['groups', 'mine'],
+    queryFn: () =>
+      apiFetch<ApiResponse<any>>('/groups').then((r) => r.data!),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Search
 // ---------------------------------------------------------------------------
@@ -206,12 +253,16 @@ export function useSearchStudents(params: {
   q?: string;
   skills?: string[];
   institution?: string;
+  graduationYear?: number;
+  verifiedOnly?: boolean;
   cursor?: string;
 }) {
   const searchParams = new URLSearchParams();
   if (params.q) searchParams.set('q', params.q);
   if (params.skills?.length) searchParams.set('skills', params.skills.join(','));
   if (params.institution) searchParams.set('institution', params.institution);
+  if (params.graduationYear) searchParams.set('graduation_year', String(params.graduationYear));
+  if (params.verifiedOnly) searchParams.set('verified_only', 'true');
   if (params.cursor) searchParams.set('cursor', params.cursor);
 
   return useQuery({
@@ -234,6 +285,38 @@ export function useRecruiterProfile() {
   });
 }
 
+export function useCreateRecruiterProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { companyName: string; position?: string; bio?: string }) =>
+      apiFetch<ApiResponse<any>>('/recruiters/me', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recruiter'] }),
+  });
+}
+
+export function useUpdateRecruiterProfile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { companyName?: string; position?: string; bio?: string }) =>
+      apiFetch<ApiResponse<any>>('/recruiters/me', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recruiter'] }),
+  });
+}
+
+export function useRecruiterStudentProfile(id: string) {
+  return useQuery({
+    queryKey: ['recruiter', 'student', id],
+    queryFn: () => apiFetch<ApiResponse<any>>(`/recruiters/profile/${id}`).then((r) => r.data!),
+    enabled: !!id,
+  });
+}
+
 export function useShortlist() {
   return useQuery({
     queryKey: ['recruiter', 'shortlist'],
@@ -248,7 +331,10 @@ export function useAddToShortlist() {
     mutationFn: (data: { studentId: string; note?: string }) =>
       apiFetch<ApiResponse<any>>('/recruiters/shortlist', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          student_id: data.studentId,
+          note: data.note,
+        }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['recruiter', 'shortlist'] }),
   });
@@ -293,6 +379,19 @@ export function useReviewVerification() {
   });
 }
 
+export function useInstitutionVerifications(status?: string) {
+  const params = new URLSearchParams();
+  if (status) params.set('status', status);
+
+  return useQuery({
+    queryKey: ['verifications', 'institution', 'me', status],
+    queryFn: () =>
+      apiFetch<ApiResponse<any>>(`/verifications/institution/me?${params.toString()}`).then(
+        (r) => r.data!,
+      ),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Institution Credentials
 // ---------------------------------------------------------------------------
@@ -305,18 +404,45 @@ export function useInstitutionCredentials() {
   });
 }
 
+export function useGenerateInstitutionKeys() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (institutionId: string) =>
+      apiFetch<ApiResponse<any>>(`/credentials/institutions/${institutionId}/keys`, {
+        method: 'POST',
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['institution'] }),
+  });
+}
+
+export function useRotateInstitutionKeys() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (institutionId: string) =>
+      apiFetch<ApiResponse<any>>(`/credentials/institutions/${institutionId}/keys/rotate`, {
+        method: 'POST',
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['institution'] }),
+  });
+}
+
 export function useIssueCredential() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: {
-      studentId: string;
+      studentId?: string;
+      studentEmail?: string;
       credentialType: string;
       title: string;
       description?: string;
+      issuedDate?: string;
     }) =>
       apiFetch<ApiResponse<any>>('/credentials/issue', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          issuedDate: data.issuedDate ?? new Date().toISOString().slice(0, 10),
+        }),
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['institution', 'credentials'] }),
   });
@@ -373,11 +499,47 @@ export function useSetUsername() {
 }
 
 export function useUpdateIdentityVisibility() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (visibility: string) =>
       apiFetch<ApiResponse<any>>('/identity/visibility', {
         method: 'PUT',
         body: JSON.stringify({ visibility }),
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['student', 'profile'] }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// GDPR
+// ---------------------------------------------------------------------------
+
+export function useRequestAccountDeletion() {
+  return useMutation({
+    mutationFn: (data: { confirmEmail: string; reason?: string }) =>
+      apiFetch<ApiResponse<any>>('/gdpr/delete-account', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+  });
+}
+
+export function useCancelAccountDeletion() {
+  return useMutation({
+    mutationFn: () =>
+      apiFetch<ApiResponse<any>>('/gdpr/cancel-deletion', {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }),
+  });
+}
+
+export function useRecordConsent() {
+  return useMutation({
+    mutationFn: (data: { consentType: string; granted: boolean }) =>
+      apiFetch<ApiResponse<any>>('/gdpr/consent', {
+        method: 'POST',
+        body: JSON.stringify(data),
       }),
   });
 }
@@ -569,16 +731,32 @@ export function useVerifyCredential(credentialId: string) {
   });
 }
 
+export function useVerifyStudentIdentity(studentId: string) {
+  return useQuery({
+    queryKey: ['student', 'verify', studentId],
+    queryFn: () => apiFetch<ApiResponse<any>>(`/verify/${studentId}`).then((r) => r.data!),
+    enabled: !!studentId,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Student Verification Request
 // ---------------------------------------------------------------------------
 
 export function useRequestVerification() {
   return useMutation({
-    mutationFn: (data: { studentId: string; institutionEmail: string }) =>
+    mutationFn: (data: {
+      institutionId: string;
+      studentEmail: string;
+      studentIdNumber: string;
+    }) =>
       apiFetch<ApiResponse<any>>('/verifications', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          institutionId: data.institutionId,
+          studentEmail: data.studentEmail,
+          studentIdNumber: data.studentIdNumber,
+        }),
       }),
   });
 }

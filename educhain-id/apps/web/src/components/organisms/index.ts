@@ -1,14 +1,9 @@
 export { VirtualStudentID } from './VirtualStudentID';
-export { StudentProfileHeader } from './StudentProfileHeader';
-export { CredentialList } from './CredentialList';
 export { SearchFilterPanel } from './SearchFilterPanel';
 export type { FilterState } from './SearchFilterPanel';
-export { ActivityFeed } from './ActivityFeed';
 export { GroupMemberList } from './GroupMemberList';
 export { StatCard, DataTable, EmptyState, Toast, Modal, Skeleton } from './Shared';
 export { BottomTabBar } from './BottomTabBar';
-export { NotificationCenter } from './NotificationCenter';
 export { CredentialDetailView } from './CredentialDetailView';
 export { CollaborationModal } from './CollaborationModal';
-export { SettingsPanel } from './SettingsPanel';
 export { ErrorState } from './ErrorState';

@@ -1,3 +1,5 @@
+﻿import pino from 'pino';
+const logger = pino({ name: 'server' });
 import dotenv from 'dotenv';
 dotenv.config({ path: '../../.env' });
 
@@ -8,10 +10,7 @@ initSentry();
 import { env } from './config/env';
 import { buildApp } from './app';
 import { prisma } from './lib/prisma';
-import { startCredentialSigningWorker } from './queue/credential.queue';
-import pino from 'pino';
 
-const logger = pino({ name: 'server' });
 
 async function main() {
   try {
@@ -21,12 +20,6 @@ async function main() {
 
     // Build Fastify app with plugins
     const app = await buildApp();
-
-    // Start BullMQ credential-signing worker (skip in test env)
-    if (env.NODE_ENV !== 'test') {
-      startCredentialSigningWorker(prisma);
-      logger.info('Credential signing worker started');
-    }
 
     await app.listen({ port: env.PORT, host: '0.0.0.0' });
     logger.info({ port: env.PORT, env: env.NODE_ENV }, 'EduChain API running');
@@ -57,8 +50,9 @@ process.on('unhandledRejection', (reason) => {
 });
 
 process.on('uncaughtException', (error) => {
-  logger.fatal(error, 'Uncaught exception — exiting');
+  logger.fatal(error, 'Uncaught exception â€” exiting');
   process.exit(1);
 });
 
 main();
+

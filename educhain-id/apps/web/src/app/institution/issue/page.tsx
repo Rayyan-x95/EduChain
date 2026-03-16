@@ -1,100 +1,177 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import { FormEvent, useState } from 'react';
+import { DashboardLayout } from '@/components/layouts/DashboardLayout';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { useIssueCredential } from '@/hooks/api';
+import { useAuth } from '@/providers/AuthProvider';
+
+function displayNameFromEmail(email?: string | null) {
+  if (!email) return 'Institution Admin';
+  return (email.split('@')[0] ?? 'Institution Admin')
+    .split(/[._-]/)
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(' ');
+}
 
 export default function IssueCredentialPage() {
-  const [studentId, setStudentId] = useState('');
-  const [credType, setCredType] = useState('degree');
+  const { user } = useAuth();
+  const issueMutation = useIssueCredential();
+  const [studentIdentifier, setStudentIdentifier] = useState('');
+  const [credentialType, setCredentialType] = useState('degree');
   const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [issuedDate, setIssuedDate] = useState(new Date().toISOString().slice(0, 10));
+  const [resultMessage, setResultMessage] = useState<string | null>(null);
+
+  const layoutUser = {
+    name: displayNameFromEmail(user?.email),
+    email: user?.email ?? 'institution@educhain.local',
+    avatar: null,
+  };
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setResultMessage(null);
+
+    const identifier = studentIdentifier.trim();
+    const payload = identifier.includes('@')
+      ? { studentEmail: identifier }
+      : { studentId: identifier };
+
+    try {
+      await issueMutation.mutateAsync({
+        ...payload,
+        credentialType,
+        title,
+        description: description.trim() || undefined,
+        issuedDate,
+      });
+
+      setResultMessage('Credential issued successfully. The record is now queued for signing if the key is available.');
+      setStudentIdentifier('');
+      setTitle('');
+      setDescription('');
+    } catch (error) {
+      setResultMessage(error instanceof Error ? error.message : 'Unable to issue the credential.');
+    }
+  }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 dark:bg-slate-950 font-sans md:flex-row pb-20 md:pb-0">
-      
-      {/* Desktop Sidebar Stub */}
-      <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 h-screen sticky top-0">
-        <div className="p-6 border-b border-slate-200 dark:border-slate-800">
-          <span className="font-bold text-lg text-slate-900 dark:text-white">Institution Portal</span>
-        </div>
-        <nav className="flex-1 p-4 space-y-2">
-          <Link href="/institution/dashboard" className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/50 font-medium">
-             <span className="material-symbols-outlined">dashboard</span> Dashboard
-          </Link>
-          <Link href="/institution/issue" className="flex items-center gap-3 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 font-semibold">
-            <span className="material-symbols-outlined">send</span> Issue Credential
-          </Link>
-        </nav>
-      </aside>
+    <DashboardLayout role="institution_admin" user={layoutUser}>
+      <section className="rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm">
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[var(--color-primary)]">
+          Credential Issuance
+        </p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--text-primary)]">
+          Issue a verified academic record
+        </h1>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--text-secondary)]">
+          Submit a student UUID or the verified student email. EduChain will hash the credential,
+          attach institution context, and sign it with the active issuer key when available.
+        </p>
+      </section>
 
-      {/* Main Form Content */}
-      <main className="flex-1 w-full max-w-2xl mx-auto p-4 md:p-8">
-        
-        <div className="mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white">Issue Direct Credential</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
-            Fill the details below. Creating this credential will automatically sign and push a hash to the EduChain network.
-          </p>
-        </div>
+      <section className="mt-6 rounded-[28px] border border-[var(--border-default)] bg-[var(--bg-elevated)] p-6 shadow-sm">
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
+                Student UUID or Verified Email
+              </label>
+              <Input
+                placeholder="student UUID or student@institution.edu"
+                value={studentIdentifier}
+                onChange={(event) => setStudentIdentifier(event.target.value)}
+                required
+              />
+            </div>
 
-        <form className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 md:p-6 shadow-sm space-y-6">
-          
-          <div className="space-y-4">
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Student DID or Email</label>
-                   <Input 
-                      placeholder="did:edu:..., or student@email.com" 
-                      value={studentId}
-                      onChange={(e) => setStudentId(e.target.value)}
-                   />
-                </div>
-                <div>
-                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Credential Category</label>
-                   <select 
-                     value={credType}
-                     onChange={(e) => setCredType(e.target.value)}
-                     className="w-full h-11 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none text-sm font-medium"
-                   >
-                     <option value="degree">Academic Degree</option>
-                     <option value="certificate">Course Certificate</option>
-                     <option value="skill">Skill Endorsement</option>
-                     <option value="attendance">Proof of Attendance</option>
-                   </select>
-                </div>
-             </div>
-
-             <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Achievement Title</label>
-                <Input 
-                  placeholder="e.g. Master of Science in Computer Science" 
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
-             </div>
-
-             <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1.5">Description (Optional)</label>
-                <textarea 
-                  rows={3}
-                  className="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-3 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none text-sm"
-                  placeholder="Additional context about this achievement..."
-                />
-             </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
+                Credential Category
+              </label>
+              <select
+                value={credentialType}
+                onChange={(event) => setCredentialType(event.target.value)}
+                className="h-12 w-full rounded-lg border border-slate-200 bg-slate-50 px-4 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+              >
+                <option value="degree">Degree</option>
+                <option value="certificate">Certificate</option>
+                <option value="award">Award</option>
+                <option value="assessment">Assessment</option>
+              </select>
+            </div>
           </div>
 
-          <div className="pt-6 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row gap-3">
-             <Button type="button" variant="outline" className="sm:flex-1 h-12">Cancel</Button>
-             <Button type="button" className="sm:flex-1 h-12 gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-600/20">
-               <span className="material-symbols-outlined text-[18px]">verified</span>
-               Sign & Issue
-             </Button>
+          <div className="grid gap-4 md:grid-cols-[1fr_220px]">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
+                Credential Title
+              </label>
+              <Input
+                placeholder="Bachelor of Science in Computer Science"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
+                Issued Date
+              </label>
+              <Input
+                type="date"
+                value={issuedDate}
+                onChange={(event) => setIssuedDate(event.target.value)}
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-semibold text-[var(--text-primary)]">
+              Description
+            </label>
+            <textarea
+              rows={4}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              placeholder="Add the achievement context, honours, score band, or scope of the credential."
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-600/50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+            />
+          </div>
+
+          {resultMessage && (
+            <div className="rounded-2xl border border-[var(--border-default)] bg-[var(--bg-default)] p-4 text-sm text-[var(--text-secondary)]">
+              {resultMessage}
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-3">
+            <Button type="submit" disabled={issueMutation.isPending}>
+              {issueMutation.isPending ? 'Issuing...' : 'Issue Credential'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setStudentIdentifier('');
+                setCredentialType('degree');
+                setTitle('');
+                setDescription('');
+                setIssuedDate(new Date().toISOString().slice(0, 10));
+                setResultMessage(null);
+              }}
+            >
+              Reset Form
+            </Button>
           </div>
         </form>
-
-      </main>
-
-    </div>
+      </section>
+    </DashboardLayout>
   );
 }

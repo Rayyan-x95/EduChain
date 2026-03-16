@@ -1,6 +1,6 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { CredentialsService } from './credentials.service';
-import { buildVerifiableCredential, buildJWTVC, buildOfflineVerificationPayload } from '../../lib/vc';
+import { buildVerifiableCredential, buildJWTVC } from '../../lib/vc';
 import type { CredentialExportFormat } from '@educhain/types';
 import { prisma } from '../../lib/prisma';
 
@@ -97,10 +97,23 @@ export class CredentialsController {
   getInstitutionCredentials = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     const { institutionId } = request.params as { institutionId: string };
     const { page, limit } = request.query as { page?: string; limit?: string };
-    const result = await this.credentialsService.getInstitutionCredentials(
+    const result = await this.credentialsService.getInstitutionCredentialsScoped(
+      request.user!.userId,
+      request.user!.role,
       institutionId,
       parseInt(page ?? '1') || 1,
       parseInt(limit ?? '20') || 20,
+    );
+
+    reply.status(200).send({ success: true, data: result });
+  };
+
+  getMyInstitutionCredentials = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { page, limit } = request.query as { page?: string; limit?: string };
+    const result = await this.credentialsService.getCurrentInstitutionCredentials(
+      request.user!.userId,
+      parseInt(page ?? '1', 10) || 1,
+      parseInt(limit ?? '20', 10) || 20,
     );
 
     reply.status(200).send({ success: true, data: result });

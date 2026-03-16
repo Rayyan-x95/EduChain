@@ -7,7 +7,6 @@ const logger = pino({ name: 'key-store' });
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
-const AUTH_TAG_LENGTH = 16;
 const SALT_LENGTH = 32;
 
 /**
@@ -69,7 +68,7 @@ function decrypt(encryptedStr: string): string {
 }
 
 /**
- * Encrypted key store backed by the institution_keys table.
+ * Encrypted key store backed by the institution_private_keys table.
  * Replaces the in-memory Map<string, string> with persistent AES-256-GCM encrypted storage.
  */
 export class InstitutionKeyStore {
@@ -79,25 +78,31 @@ export class InstitutionKeyStore {
     const encryptedPrivateKey = encrypt(privateKeyPem);
 
     // Upsert: create or update (for key rotation)
-    await this.prisma.$executeRaw`
-      INSERT INTO institution_keys (id, institution_id, encrypted_private_key, created_at, rotated_at)
-      VALUES (gen_random_uuid(), ${institutionId}::uuid, ${encryptedPrivateKey}, NOW(), NOW())
-      ON CONFLICT (institution_id) DO UPDATE SET
-        encrypted_private_key = ${encryptedPrivateKey},
-        rotated_at = NOW()
-    `;
+    await this.prisma.institutionPrivateKey.upsert({
+      where: { institutionId },
+      create: {
+        institutionId,
+        encryptedPrivateKey,
+        rotatedAt: new Date(),
+      },
+      update: {
+        encryptedPrivateKey,
+        rotatedAt: new Date(),
+      },
+    });
     logger.info({ institutionId }, 'Private key stored (encrypted)');
   }
 
   async getPrivateKey(institutionId: string): Promise<string | null> {
-    const rows = await this.prisma.$queryRaw<Array<{ encrypted_private_key: string }>>`
-      SELECT encrypted_private_key FROM institution_keys WHERE institution_id = ${institutionId}::uuid
-    `;
+    const row = await this.prisma.institutionPrivateKey.findUnique({
+      where: { institutionId },
+      select: { encryptedPrivateKey: true },
+    });
 
-    if (!rows || rows.length === 0) return null;
+    if (!row) return null;
 
     try {
-      return decrypt(rows[0].encrypted_private_key);
+      return decrypt(row.encryptedPrivateKey);
     } catch (err) {
       logger.error({ institutionId, err }, 'Failed to decrypt private key');
       return null;
@@ -113,13 +118,18 @@ export class InstitutionKeyStore {
 
     await this.prisma.$transaction([
       // Store new key version
-      this.prisma.$executeRaw`
-        INSERT INTO institution_keys (id, institution_id, encrypted_private_key, created_at, rotated_at)
-        VALUES (gen_random_uuid(), ${institutionId}::uuid, ${encryptedPrivateKey}, NOW(), NOW())
-        ON CONFLICT (institution_id) DO UPDATE SET
-          encrypted_private_key = ${encryptedPrivateKey},
-          rotated_at = NOW()
-      `,
+      this.prisma.institutionPrivateKey.upsert({
+        where: { institutionId },
+        create: {
+          institutionId,
+          encryptedPrivateKey,
+          rotatedAt: new Date(),
+        },
+        update: {
+          encryptedPrivateKey,
+          rotatedAt: new Date(),
+        },
+      }),
       // Update institution's public key
       this.prisma.$executeRaw`
         UPDATE institutions SET public_key = ${newPublicKeyPem} WHERE id = ${institutionId}::uuid

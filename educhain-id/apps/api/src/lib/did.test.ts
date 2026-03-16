@@ -8,7 +8,7 @@ import {
 import crypto from 'crypto';
 
 // Generate a test RSA key pair
-const { publicKey: testPublicKeyPem, privateKey: testPrivateKeyPem } = crypto.generateKeyPairSync('rsa', {
+const { publicKey: testPublicKeyPem } = crypto.generateKeyPairSync('rsa', {
   modulusLength: 2048,
   publicKeyEncoding: { type: 'spki', format: 'pem' },
   privateKeyEncoding: { type: 'pkcs8', format: 'pem' },

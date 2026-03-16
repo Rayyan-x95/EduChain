@@ -262,6 +262,81 @@ export class CollaborationService {
     return { incoming_requests: incoming, outgoing_requests: outgoing };
   }
 
+  async getIncomingCollaborationRequests(studentId: string) {
+    const result = await this.listCollaborationRequests(studentId);
+    return result.incoming_requests;
+  }
+
+  async getOutgoingCollaborationRequests(studentId: string) {
+    const result = await this.listCollaborationRequests(studentId);
+    return result.outgoing_requests;
+  }
+
+  async getActiveCollaborators(studentId: string) {
+    const acceptedRequests = await this.prisma.collaborationRequest.findMany({
+      where: {
+        status: 'accepted',
+        OR: [{ senderId: studentId }, { receiverId: studentId }],
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            fullName: true,
+            degree: true,
+            institution: { select: { name: true } },
+          },
+        },
+        receiver: {
+          select: {
+            id: true,
+            fullName: true,
+            degree: true,
+            institution: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return acceptedRequests.map((request) =>
+      request.senderId === studentId ? request.receiver : request.sender,
+    );
+  }
+
+  async getActivityFeed(studentId: string, page = 1, limit = 20) {
+    const take = Math.min(limit, 100);
+    const skip = (page - 1) * take;
+
+    const [activities, total] = await Promise.all([
+      this.prisma.activityLog.findMany({
+        where: {
+          OR: [{ actorId: studentId }, { targetId: studentId }],
+        },
+        include: {
+          actor: {
+            select: {
+              id: true,
+              fullName: true,
+              degree: true,
+              institution: { select: { name: true } },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.activityLog.count({
+        where: {
+          OR: [{ actorId: studentId }, { targetId: studentId }],
+        },
+      }),
+    ]);
+
+    return { activities, total, page, limit: take };
+  }
+
   // ---------------------------------------------------------------------------
   // Project Groups
   // ---------------------------------------------------------------------------
@@ -314,6 +389,56 @@ export class CollaborationService {
       ...m.group,
       myRole: m.role,
     }));
+  }
+
+  async getGroupById(groupId: string, requesterStudentId: string) {
+    const membership = await this.prisma.groupMember.findUnique({
+      where: {
+        groupId_studentId: {
+          groupId,
+          studentId: requesterStudentId,
+        },
+      },
+      select: { role: true },
+    });
+
+    if (!membership) {
+      throw new AppError(403, 'Only group members can view this group');
+    }
+
+    const group = await this.prisma.group.findUnique({
+      where: { id: groupId },
+      include: {
+        creator: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
+        members: {
+          include: {
+            student: {
+              select: {
+                id: true,
+                fullName: true,
+                degree: true,
+                institution: { select: { name: true } },
+              },
+            },
+          },
+          orderBy: { joinedAt: 'asc' },
+        },
+      },
+    });
+
+    if (!group) {
+      throw new AppError(404, 'Group not found');
+    }
+
+    return {
+      ...group,
+      myRole: membership.role,
+    };
   }
 
   async addGroupMember(groupId: string, requestingStudentId: string, targetStudentId: string) {

@@ -75,13 +75,17 @@ export class RecruitersService {
       where.graduationYear = params.graduation_year;
     }
 
-    if (params.skill) {
+    if (params.skills?.length) {
       where.skills = {
-        some: { skill: { name: { equals: params.skill, mode: 'insensitive' } } },
+        some: {
+          OR: params.skills.map((skill) => ({
+            skill: { name: { equals: skill, mode: 'insensitive' } },
+          })),
+        },
       };
     }
 
-    if (params.verified_only === 'true') {
+    if (params.verified_only) {
       where.credentials = {
         some: { status: 'active', signature: { not: null } },
       };

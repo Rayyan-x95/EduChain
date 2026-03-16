@@ -1,5 +1,4 @@
 import { AchievementsService } from './achievements.service';
-import { AppError } from '../../middleware/errorHandler';
 
 function createMockPrisma() {
   return {

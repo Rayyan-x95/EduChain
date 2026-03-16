@@ -1,11 +1,9 @@
 import crypto from 'crypto';
 import type {
   VerifiableCredential,
-  VCProof,
   OfflineVerificationPayload,
 } from '@educhain/types';
 import { generateDIDWeb } from './did';
-import { signCredential, verifyCredentialSignature, generateCredentialHash } from './credential.crypto';
 
 /**
  * Build a W3C Verifiable Credential in JSON-LD format from an EduChain credential.

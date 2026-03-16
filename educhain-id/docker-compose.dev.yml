@@ -4,11 +4,12 @@ services:
       context: .
       dockerfile: Dockerfile
       target: build
-    command: npx tsx watch apps/api/src/server.ts
+    command: pnpm --filter @educhain/api dev
     ports:
-      - "3000:3000"
+      - "8001:8001"
     environment:
       - NODE_ENV=development
+      - PORT=8001
       - DATABASE_URL=postgresql://educhain:educhain_password@postgres:5432/educhain_dev?schema=public
       - JWT_SECRET=dev-jwt-secret-min-32-characters-long
       - JWT_REFRESH_SECRET=dev-refresh-secret-min-32-characters

@@ -41,6 +41,13 @@ export class VerifyService {
       throw new AppError(404, 'Student not found');
     }
 
+    // Privacy enforcement for public verification:
+    // - Only publicly visible profiles can be verified by arbitrary scanners.
+    // - Avoid leaking whether a private/recruiter-only student exists.
+    if (student.profileVisibility !== 'public' || student.user.identityVisibility !== 'public') {
+      throw new AppError(404, 'Student not found');
+    }
+
     // Verify each credential's cryptographic signature
     const verifiedCredentials = student.credentials.map((c) => {
       let signatureValid = false;

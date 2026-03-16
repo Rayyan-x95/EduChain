@@ -23,6 +23,12 @@ export async function verificationsRoutes(fastify: FastifyInstance): Promise<voi
 
   // Institution admin – list requests for their institution
   fastify.get(
+    '/institution/me',
+    { preHandler: [authenticateToken, authorizeRole(['institution_admin'])] },
+    verificationsController.listByCurrentInstitution,
+  );
+
+  fastify.get(
     '/institution/:institutionId',
     { preHandler: [authenticateToken, authorizeRole(['institution_admin', 'platform_admin'])] },
     verificationsController.listByInstitution,

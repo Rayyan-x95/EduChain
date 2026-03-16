@@ -16,6 +16,7 @@ export default function InstitutionSelectPage() {
   const { data: institutions, isLoading } = useInstitutionAutocomplete(query || undefined);
 
   const filtered = (institutions ?? []) as Array<{ id: string; name: string; verificationStatus: boolean }>;
+  const selectedInstitution = filtered.find((institution) => institution.id === selected);
 
   return (
     <AuthLayout heading="Select Your Institution" subheading="Connect your account to your academic institution">
@@ -64,7 +65,14 @@ export default function InstitutionSelectPage() {
           size="lg"
           className="w-full mt-2"
           disabled={!selected}
-          onClick={() => router.push('/auth/verify-student')}
+          onClick={() => {
+            if (!selectedInstitution) return;
+            const params = new URLSearchParams({
+              institutionId: selectedInstitution.id,
+              institutionName: selectedInstitution.name,
+            });
+            router.push(`/auth/verify-student?${params.toString()}`);
+          }}
         >
           Continue
         </Button>

@@ -1,5 +1,4 @@
 import { VerificationsService } from './verifications.service';
-import { AppError } from '../../middleware/errorHandler';
 
 function createMockPrisma() {
   return {

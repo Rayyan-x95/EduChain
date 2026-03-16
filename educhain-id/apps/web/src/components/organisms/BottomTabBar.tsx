@@ -7,10 +7,10 @@ import { cn } from '@/lib/utils';
 import { Home, Search, FolderOpen, User } from 'lucide-react';
 
 const TABS = [
-  { label: 'Home', href: '/student/home', icon: Home },
-  { label: 'Discover', href: '/student/search', icon: Search },
-  { label: 'Projects', href: '/student/projects', icon: FolderOpen },
-  { label: 'Profile', href: '/student/profile', icon: User },
+  { label: 'Home', href: '/dashboard', icon: Home },
+  { label: 'Discover', href: '/discovery', icon: Search },
+  { label: 'Projects', href: '/projects', icon: FolderOpen },
+  { label: 'Profile', href: '/profile', icon: User },
 ];
 
 export function BottomTabBar() {

@@ -37,6 +37,8 @@ model User {
   id                   String             @id @default(uuid()) @db.Uuid
   email                String             @unique
   passwordHash         String             @map("password_hash")
+  emailVerified        Boolean            @default(false) @map("email_verified")
+  emailVerifiedAt      DateTime?          @map("email_verified_at")
   role                 UserRole
   username             String?            @unique
   publicIdentitySlug   String?            @unique @map("public_identity_slug")
@@ -49,6 +51,8 @@ model User {
   student       Student?
   recruiter     Recruiter?
   notifications Notification[]
+  emailVerification EmailVerification?
+  passwordReset     PasswordReset?
 
   // Phase 8: Reputation Graph
   outgoingRelationships Relationship[] @relation("RelSource")
@@ -57,6 +61,32 @@ model User {
   @@index([username])
   @@index([publicIdentitySlug])
   @@map("users")
+}
+
+model EmailVerification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("email_verifications")
+}
+
+model PasswordReset {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+  @@map("password_resets")
 }
 
 model RefreshToken {
@@ -94,7 +124,8 @@ model Institution {
   students              Student[]
   verificationRequests  StudentVerification[]
   credentials           Credential[]
-  keyVersions           KeyVersion[]
+  keys                  InstitutionKey[]
+  privateKey            InstitutionPrivateKey?
 
   @@index([domain])
   @@map("institutions")
@@ -222,16 +253,18 @@ model Credential {
   title           String
   description     String?          @db.Text
   issuedDate      DateTime         @map("issued_date") @db.Date
-  credentialHash  String?          @map("credential_hash")
+  credentialHash  String?          @unique @map("credential_hash")
   signature       String?          @db.Text
   signedAt        DateTime?        @map("signed_at")
-  keyId           String?          @map("key_id")
+  keyId           String?          @map("key_id") @db.Uuid
+  nonce           String           @unique
   status          CredentialStatus @default(active)
   certificateUrl  String?          @map("certificate_url")
   createdAt       DateTime         @default(now()) @map("created_at")
 
-  student     Student     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  institution Institution @relation(fields: [institutionId], references: [id])
+  student     Student        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  institution Institution    @relation(fields: [institutionId], references: [id])
+  key         InstitutionKey? @relation(fields: [keyId], references: [id])
 
   @@index([studentId])
   @@index([institutionId])
@@ -296,6 +329,7 @@ model CollaborationRequest {
   sender   Student @relation("CollabSender", fields: [senderId], references: [id], onDelete: Cascade)
   receiver Student @relation("CollabReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
 
+  @@unique([senderId, receiverId])
   @@index([senderId])
   @@index([receiverId])
   @@index([status])
@@ -479,23 +513,38 @@ model Relationship {
 // ---------------------------------------------------------------------------
 // Key versioning — tracks institution key rotations for audit & verification
 // ---------------------------------------------------------------------------
-model KeyVersion {
-  id              String   @id @default(uuid()) @db.Uuid
-  institutionId   String   @map("institution_id") @db.Uuid
-  version         Int
-  publicKeyPem    String   @map("public_key_pem") @db.Text
-  keyFingerprint  String   @map("key_fingerprint")
-  algorithm       String   @default("RS256")
-  activatedAt     DateTime @default(now()) @map("activated_at")
-  deactivatedAt   DateTime? @map("deactivated_at")
-  createdAt       DateTime @default(now()) @map("created_at")
+enum KeyStatus {
+  active
+  revoked
+  expired
+}
+
+model InstitutionKey {
+  id              String      @id @default(uuid()) @db.Uuid
+  institutionId   String      @map("institution_id") @db.Uuid
+  publicKey       String      @map("public_key") @db.Text
+  status          KeyStatus   @default(active)
+  createdAt       DateTime    @default(now()) @map("created_at")
+  revokedAt       DateTime?   @map("revoked_at")
+
+  institution Institution  @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  credentials Credential[]
+
+  @@index([institutionId, status])
+  @@map("institution_keys")
+}
+
+model InstitutionPrivateKey {
+  id                  String   @id @default(uuid()) @db.Uuid
+  institutionId        String   @unique @map("institution_id") @db.Uuid
+  encryptedPrivateKey  String   @map("encrypted_private_key") @db.Text
+  createdAt            DateTime @default(now()) @map("created_at")
+  rotatedAt            DateTime @default(now()) @map("rotated_at")
 
   institution Institution @relation(fields: [institutionId], references: [id], onDelete: Cascade)
 
-  @@unique([institutionId, version])
   @@index([institutionId])
-  @@index([keyFingerprint])
-  @@map("key_versions")
+  @@map("institution_private_keys")
 }
 
 // ---------------------------------------------------------------------------

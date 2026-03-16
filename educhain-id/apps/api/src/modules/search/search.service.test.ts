@@ -1,4 +1,5 @@
 import { SearchService } from './search.service';
+import { getCachedSearch, setCachedSearch } from '../../lib/search.cache';
 
 // Mock the search cache so tests don't need Redis
 jest.mock('../../lib/search.cache', () => ({
@@ -6,6 +7,9 @@ jest.mock('../../lib/search.cache', () => ({
   getCachedSearch: jest.fn().mockResolvedValue(null),
   setCachedSearch: jest.fn().mockResolvedValue(undefined),
 }));
+
+const mockedGetCachedSearch = getCachedSearch as unknown as jest.MockedFunction<typeof getCachedSearch>;
+const mockedSetCachedSearch = setCachedSearch as unknown as jest.MockedFunction<typeof setCachedSearch>;
 
 function createMockPrisma() {
   return {
@@ -220,13 +224,12 @@ describe('SearchService', () => {
     // Caching
     // -------------------------------------------------------------------
     it('should return cached results when available', async () => {
-      const { getCachedSearch } = require('../../lib/search.cache');
       const cachedData = {
         results: [{ student_id: 'cached-1', full_name: 'Cached' }],
         next_cursor: null,
         total: 1,
       };
-      getCachedSearch.mockResolvedValueOnce(JSON.stringify(cachedData));
+      mockedGetCachedSearch.mockResolvedValueOnce(JSON.stringify(cachedData));
 
       const result = await service.searchStudents({ limit: 20, sort: 'recent' });
 
@@ -235,11 +238,9 @@ describe('SearchService', () => {
     });
 
     it('should cache results after a fresh query', async () => {
-      const { setCachedSearch } = require('../../lib/search.cache');
-
       await service.searchStudents({ limit: 20, sort: 'recent' });
 
-      expect(setCachedSearch).toHaveBeenCalledWith(
+      expect(mockedSetCachedSearch).toHaveBeenCalledWith(
         'search:students:mock',
         expect.any(String),
       );

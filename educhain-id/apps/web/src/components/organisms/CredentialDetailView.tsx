@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { Badge } from '../atoms/Badge';
 import { Button } from '../atoms/Button';
-import { ShieldCheck, Calendar, Building2, FileText, Download, ExternalLink } from 'lucide-react';
+import { ShieldCheck, Calendar, Building2, FileText, Download } from 'lucide-react';
 
 type CredentialStatus = 'active' | 'revoked';
 

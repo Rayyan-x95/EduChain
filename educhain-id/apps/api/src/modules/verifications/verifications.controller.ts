@@ -22,10 +22,23 @@ export class VerificationsController {
     const { status, page, limit } = request.query as { status?: string; page?: string; limit?: string };
 
     const result = await this.verificationsService.listByInstitution(
+      request.user!.userId,
+      request.user!.role,
       institutionId,
       status,
       parseInt(page ?? '1') || 1,
       parseInt(limit ?? '20') || 20,
+    );
+    reply.status(200).send({ success: true, data: result });
+  };
+
+  listByCurrentInstitution = async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
+    const { status, page, limit } = request.query as { status?: string; page?: string; limit?: string };
+    const result = await this.verificationsService.listByCurrentInstitution(
+      request.user!.userId,
+      status,
+      parseInt(page ?? '1', 10) || 1,
+      parseInt(limit ?? '20', 10) || 20,
     );
     reply.status(200).send({ success: true, data: result });
   };

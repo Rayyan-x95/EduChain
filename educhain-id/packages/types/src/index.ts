@@ -377,12 +377,27 @@ export interface PublicIdentityProfile {
   fullName: string;
   bio?: string | null;
   institution?: string | null;
+  institutionVerified?: boolean;
   degree?: string | null;
   graduationYear?: number | null;
   skills: string[];
   verifiedCredentialCount: number;
   endorsementCount: number;
   relationshipCount: number;
+  credentials?: Array<{
+    id: string;
+    title: string;
+    credentialType: string;
+    issuedDate: Date;
+    institutionName: string;
+  }>;
+  projects?: Array<{
+    id: string;
+    title: string;
+    description?: string | null;
+    repoLink?: string | null;
+    createdAt: Date;
+  }>;
 }
 
 export interface TalentSearchResult {

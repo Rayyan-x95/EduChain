@@ -41,6 +41,14 @@ export class StudentsService {
     const student = await this.prisma.student.findUnique({
       where: { userId },
       include: {
+        user: {
+          select: {
+            email: true,
+            username: true,
+            publicIdentitySlug: true,
+            identityVisibility: true,
+          },
+        },
         institution: true,
         skills: { include: { skill: true } },
         projects: { orderBy: { createdAt: 'desc' } },
@@ -59,6 +67,13 @@ export class StudentsService {
     const student = await this.prisma.student.findUnique({
       where: { id: studentId },
       include: {
+        user: {
+          select: {
+            username: true,
+            publicIdentitySlug: true,
+            identityVisibility: true,
+          },
+        },
         institution: true,
         skills: { include: { skill: true } },
         projects: { orderBy: { createdAt: 'desc' } },
@@ -185,5 +200,158 @@ export class StudentsService {
     const missing = checks.filter((c) => !c.done).map((c) => c.field);
 
     return { score, maxScore: 100, missing };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Dashboard stats
+  // ---------------------------------------------------------------------------
+
+  async getStudentStats(userId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        institutionId: true,
+        institution: {
+          select: {
+            id: true,
+            name: true,
+            verificationStatus: true,
+          },
+        },
+      },
+    });
+
+    if (!student) {
+      throw new AppError(404, 'Student profile not found');
+    }
+
+    const [
+      credentialCount,
+      projectCount,
+      achievementCount,
+      followerCount,
+      groupCount,
+      collaboratorCount,
+      completion,
+    ] = await Promise.all([
+      this.prisma.credential.count({
+        where: {
+          studentId: student.id,
+          status: 'active',
+        },
+      }),
+      this.prisma.project.count({ where: { studentId: student.id } }),
+      this.prisma.achievement.count({ where: { studentId: student.id } }),
+      this.prisma.follow.count({ where: { followingId: student.id } }),
+      this.prisma.groupMember.count({ where: { studentId: student.id } }),
+      this.prisma.collaborationRequest.count({
+        where: {
+          status: 'accepted',
+          OR: [{ senderId: student.id }, { receiverId: student.id }],
+        },
+      }),
+      this.getProfileCompletion(userId),
+    ]);
+
+    return {
+      institution: student.institution,
+      profileCompletion: completion,
+      credentialCount,
+      projectCount,
+      achievementCount,
+      followerCount,
+      groupCount,
+      collaboratorCount,
+      institutionVerified: Boolean(student.institution?.verificationStatus),
+    };
+  }
+
+  async getInstitutionStats(userId: string) {
+    const institution = await this.findInstitutionForAdmin(userId);
+
+    const [
+      studentCount,
+      credentialCount,
+      signedCredentialCount,
+      pendingRequests,
+      approvedRequests,
+      totalRequests,
+      activeKey,
+      keyCount,
+    ] =
+      await Promise.all([
+        this.prisma.student.count({ where: { institutionId: institution.id } }),
+        this.prisma.credential.count({ where: { institutionId: institution.id } }),
+        this.prisma.credential.count({
+          where: {
+            institutionId: institution.id,
+            signature: { not: null },
+            status: 'active',
+          },
+        }),
+        this.prisma.studentVerification.count({
+          where: { institutionId: institution.id, status: 'pending' },
+        }),
+        this.prisma.studentVerification.count({
+          where: { institutionId: institution.id, status: 'approved' },
+        }),
+        this.prisma.studentVerification.count({ where: { institutionId: institution.id } }),
+        this.prisma.institutionKey.findFirst({
+          where: { institutionId: institution.id, status: 'active' },
+          select: { id: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+        }),
+        this.prisma.institutionKey.count({ where: { institutionId: institution.id } }),
+      ]);
+
+    return {
+      institution,
+      studentCount,
+      credentialCount,
+      signedCredentialCount,
+      pendingRequests,
+      approvedRequests,
+      verificationRate: totalRequests === 0 ? 0 : Math.round((approvedRequests / totalRequests) * 100),
+      keyManagement: {
+        hasActiveKey: Boolean(institution.publicKey),
+        activeKeyId: activeKey?.id ?? null,
+        activeKeyCreatedAt: activeKey?.createdAt ?? null,
+        keyCount,
+      },
+    };
+  }
+
+  private async findInstitutionForAdmin(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, role: true },
+    });
+
+    if (!user) {
+      throw new AppError(404, 'User not found');
+    }
+
+    if (user.role !== 'institution_admin') {
+      throw new AppError(403, 'Only institution administrators can access institution stats');
+    }
+
+    const domain = user.email.split('@')[1] ?? '';
+    const institution = await this.prisma.institution.findUnique({
+      where: { domain },
+      select: {
+        id: true,
+        name: true,
+        domain: true,
+        verificationStatus: true,
+        publicKey: true,
+      },
+    });
+
+    if (!institution) {
+      throw new AppError(404, 'Institution not found for your account');
+    }
+
+    return institution;
   }
 }

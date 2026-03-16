@@ -53,12 +53,29 @@ export class IdentityService {
       include: {
         student: {
           include: {
-            institution: { select: { name: true } },
+            institution: { select: { name: true, verificationStatus: true } },
             skills: { include: { skill: { select: { name: true } } } },
             receivedEndorsements: true,
             credentials: {
               where: { status: 'active', signature: { not: null } },
-              select: { id: true },
+              select: {
+                id: true,
+                title: true,
+                credentialType: true,
+                issuedDate: true,
+                institution: { select: { name: true } },
+              },
+              orderBy: { issuedDate: 'desc' },
+            },
+            projects: {
+              select: {
+                id: true,
+                title: true,
+                description: true,
+                repoLink: true,
+                createdAt: true,
+              },
+              orderBy: { createdAt: 'desc' },
             },
           },
         },
@@ -84,6 +101,7 @@ export class IdentityService {
       fullName: s.fullName,
       bio: s.bio,
       institution: s.institution?.name ?? null,
+      institutionVerified: Boolean(s.institution?.verificationStatus),
       degree: s.degree,
       graduationYear: s.graduationYear,
       skills: s.skills.map((ss) => ss.skill.name),
@@ -91,6 +109,14 @@ export class IdentityService {
       endorsementCount: s.receivedEndorsements.length,
       relationshipCount:
         user.outgoingRelationships.length + user.incomingRelationships.length,
+      credentials: s.credentials.map((credential) => ({
+        id: credential.id,
+        title: credential.title,
+        credentialType: credential.credentialType,
+        issuedDate: credential.issuedDate,
+        institutionName: credential.institution?.name ?? s.institution?.name ?? 'Unknown institution',
+      })),
+      projects: s.projects,
     };
   }
 

@@ -6,7 +6,6 @@ import { authorizeRole } from '../../middleware/authorizeRole';
 import { ownershipGuard } from '../../middleware/ownershipGuard';
 import { validateBody } from '../../middleware/validateBody';
 import { issueCredentialSchema, revokeCredentialSchema } from '@educhain/validators';
-import { RATE_LIMITS } from '../../middleware/rateLimiter';
 import { prisma } from '../../lib/prisma';
 
 const credentialsService = new CredentialsService(prisma);
@@ -82,7 +81,13 @@ export async function credentialsRoutes(fastify: FastifyInstance): Promise<void>
     config: { rateLimit: { max: 30, timeWindow: 60_000 } },
   }, credentialsController.getShareableCredential);
 
-  // Credential queries — ownership enforced
+  // Credential queries – ownership enforced
+  fastify.get(
+    '/',
+    { preHandler: [authenticateToken, authorizeRole(['institution_admin'])] },
+    credentialsController.getMyInstitutionCredentials,
+  );
+
   fastify.get(
     '/me',
     { preHandler: [authenticateToken] },
